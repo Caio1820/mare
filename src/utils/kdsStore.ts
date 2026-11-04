@@ -4,7 +4,7 @@ import { playKitchenBell } from './sound';
 const STORAGE_KEY = 'mare_orders_v2';
 const BROADCAST_CHANNEL_NAME = 'mare_restaurant_channel';
 
-// BroadcastChannel for cross-tab multi-window instant communication (<5ms)
+// BroadcastChannel for instant cross-tab communication in the same browser (< 5ms)
 let broadcastChannel: BroadcastChannel | null = null;
 if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   try {
@@ -13,12 +13,6 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
     // Ignore
   }
 }
-
-// In-memory cache
-let cachedOrders: Order[] = [];
-let eventSource: EventSource | null = null;
-let previousOrderCount = 0;
-const listeners: Set<(orders: Order[]) => void> = new Set();
 
 // Fallback initial seeds
 const INITIAL_SEEDED_ORDERS: Order[] = [
@@ -167,6 +161,29 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
   },
 ];
 
+// Helper to safely read from localStorage
+export function readFromStorage(): Order[] {
+  if (typeof window === 'undefined') return INITIAL_SEEDED_ORDERS;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Ignore JSON errors
+  }
+  return INITIAL_SEEDED_ORDERS;
+}
+
+// In-memory cache initialized directly from localStorage if present
+let cachedOrders: Order[] = typeof window !== 'undefined' ? readFromStorage() : INITIAL_SEEDED_ORDERS;
+let previousOrderCount = cachedOrders.length;
+let eventSource: EventSource | null = null;
+const listeners: Set<(orders: Order[]) => void> = new Set();
+
 // Helper to notify all internal listeners and persistent storage
 function notifyListeners(orders: Order[], isRemoteUpdate = false) {
   // Check if new orders arrived (more than previous and at least one is "recebido")
@@ -175,7 +192,11 @@ function notifyListeners(orders: Order[], isRemoteUpdate = false) {
       (o) => o.status === 'recebido' && !cachedOrders.some((c) => c.id === o.id)
     );
     if (hasNewRecebido) {
-      playKitchenBell();
+      try {
+        playKitchenBell();
+      } catch {
+        // Ignore audio errors
+      }
     }
   }
 
@@ -208,7 +229,7 @@ function notifyListeners(orders: Order[], isRemoteUpdate = false) {
   }
 }
 
-// Initialize SSE connection for real-time push from backend
+// Initialize SSE connection for real-time push from backend (Cloud Run / Node)
 function initSSE() {
   if (typeof window === 'undefined') return;
   if (eventSource) return;
@@ -228,17 +249,16 @@ function initSSE() {
     };
 
     eventSource.onerror = () => {
-      // If server SSE fails or disconnects, retry in 5s
       eventSource?.close();
       eventSource = null;
-      setTimeout(initSSE, 5000);
+      setTimeout(initSSE, 6000);
     };
   } catch (err) {
     console.error('Failed to init SSE:', err);
   }
 }
 
-// Listen to local BroadcastChannel (instant multi-tab sync)
+// Listen to local BroadcastChannel (instant multi-tab sync across tabs in same browser)
 if (broadcastChannel) {
   broadcastChannel.onmessage = (event) => {
     if (event.data?.type === 'ORDERS_UPDATED' && Array.isArray(event.data.orders)) {
@@ -265,30 +285,18 @@ if (typeof window !== 'undefined') {
 
 // Initial cache load from localStorage or seeds
 export function getStoredOrders(): Order[] {
-  if (cachedOrders.length > 0) return cachedOrders;
-  if (typeof window === 'undefined') return INITIAL_SEEDED_ORDERS;
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedOrders = parsed;
-        previousOrderCount = parsed.length;
-        return cachedOrders;
-      }
+  if (typeof window !== 'undefined') {
+    const fromStorage = readFromStorage();
+    if (fromStorage.length > 0) {
+      cachedOrders = fromStorage;
+      return cachedOrders;
     }
-  } catch {
-    // Ignore
   }
-
-  cachedOrders = INITIAL_SEEDED_ORDERS;
-  previousOrderCount = INITIAL_SEEDED_ORDERS.length;
   return cachedOrders;
 }
 
-// Fetch orders from backend API
-export async function fetchOrdersFromApi(): Promise<Order[]> {
+// Sync function called periodically: checks backend API, and if unavailable (e.g. Vercel static), syncs from localStorage
+export async function syncOrders(): Promise<Order[]> {
   try {
     const res = await fetch('/api/orders');
     if (res.ok) {
@@ -299,9 +307,23 @@ export async function fetchOrdersFromApi(): Promise<Order[]> {
       }
     }
   } catch {
-    // If backend isn't ready or offline, return local cache
+    // Backend API offline or static deploy (like Vercel)
   }
-  return getStoredOrders();
+
+  // Fallback: check localStorage for any cross-tab changes
+  if (typeof window !== 'undefined') {
+    const fromStorage = readFromStorage();
+    if (
+      fromStorage.length !== cachedOrders.length ||
+      fromStorage[0]?.id !== cachedOrders[0]?.id ||
+      fromStorage.some((item, i) => item.status !== cachedOrders[i]?.status)
+    ) {
+      notifyListeners(fromStorage, true);
+      return fromStorage;
+    }
+  }
+
+  return cachedOrders;
 }
 
 // Create new order (from Kiosk)
@@ -316,33 +338,13 @@ export async function createOrder(orderPayload: {
   paymentMethod: 'pix' | 'cartao_balcao' | 'dinheiro_balcao';
   paymentStatus: 'pago' | 'pendente_balcao';
 }): Promise<Order> {
-  try {
-    // Try sending to Express backend
-    const res = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderPayload),
-    });
-
-    if (res.ok) {
-      const newOrder: Order = await res.json();
-      // Immediately notify local cache, storage, and BroadcastChannel so other tabs see it instantly!
-      const current = getStoredOrders().filter((o) => o.id !== newOrder.id);
-      const updated = [newOrder, ...current];
-      notifyListeners(updated, false);
-      return newOrder;
-    }
-  } catch (err) {
-    console.warn('Backend POST /api/orders failed, using local offline fallback:', err);
-  }
-
-  // Offline fallback
-  const current = getStoredOrders();
+  const current = readFromStorage();
   const nextNum = current.length + 1;
   const numStr = String(nextNum).padStart(3, '0');
   const now = new Date();
+  const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-  const fallbackOrder: Order = {
+  const localNewOrder: Order = {
     id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     orderNumber: `#${numStr}`,
     customerName: orderPayload.customerName.trim(),
@@ -356,47 +358,40 @@ export async function createOrder(orderPayload: {
     paymentStatus: orderPayload.paymentStatus,
     status: 'recebido',
     createdAt: Date.now(),
-    formattedTime: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    formattedTime,
     estimatedMinutes: 15,
   };
 
-  const updated = [fallbackOrder, ...current];
-  notifyListeners(updated, false);
-  return fallbackOrder;
+  // IMMEDIATELY update local storage, cached orders, and broadcast to other open tabs!
+  const updatedList = [localNewOrder, ...current];
+  notifyListeners(updatedList, false);
+
+  // In parallel, attempt to sync with backend server if available
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderPayload),
+    });
+
+    if (res.ok) {
+      const serverOrder: Order = await res.json();
+      // If server returned an order with official sequential ID, replace it smoothly
+      const synced = updatedList.map((o) => (o.id === localNewOrder.id ? serverOrder : o));
+      notifyListeners(synced, false);
+      return serverOrder;
+    }
+  } catch (err) {
+    console.warn('Backend API unavailable, stored order locally in browser/BroadcastChannel:', err);
+  }
+
+  return localNewOrder;
 }
 
 // Update order status (from Kitchen)
 export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus): Promise<void> {
-  try {
-    // Try sending to Express backend
-    const res = await fetch(`/api/orders/${orderId}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: nextStatus }),
-    });
-
-    if (res.ok) {
-      const updatedOrder = await res.json();
-      const current = getStoredOrders().map((ord) => {
-        if (ord.id === orderId) {
-          return {
-            ...ord,
-            ...updatedOrder,
-            status: nextStatus,
-            announcedAt: nextStatus === 'pronto' ? Date.now() : ord.announcedAt,
-          };
-        }
-        return ord;
-      });
-      notifyListeners(current, false);
-      return;
-    }
-  } catch (err) {
-    console.warn('Backend PATCH failed, updating local state:', err);
-  }
-
-  // Offline fallback
-  const current = getStoredOrders();
+  // 1. Immediately update locally in memory, localStorage and BroadcastChannel
+  const current = readFromStorage();
   const updated = current.map((ord) => {
     if (ord.id === orderId) {
       return {
@@ -408,6 +403,17 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
     return ord;
   });
   notifyListeners(updated, false);
+
+  // 2. In parallel, notify backend server if available
+  try {
+    await fetch(`/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+  } catch {
+    // Local update is already active
+  }
 }
 
 // Admin login verification
@@ -452,16 +458,16 @@ export function subscribeToOrders(callback: (orders: Order[]) => void): () => vo
   // Send current cached orders immediately
   callback(getStoredOrders());
 
-  // Fetch fresh orders from backend right away
-  fetchOrdersFromApi();
+  // Run sync immediately
+  syncOrders();
 
   // Ensure SSE is active
   initSSE();
 
-  // Polling fallback every 2 seconds to guarantee cross-tab and cross-device sync
+  // Polling sync every 1.5 seconds to guarantee cross-tab and cross-device sync even on static Vercel
   const pollTimer = setInterval(() => {
-    fetchOrdersFromApi();
-  }, 2000);
+    syncOrders();
+  }, 1500);
 
   return () => {
     listeners.delete(callback);

@@ -66,41 +66,63 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden sm:inline">Autoatendimento</span>
         </a>
 
-        <a
-          href="/cozinha"
-          onClick={(e) => {
-            e.preventDefault();
-            playTouchSound(550);
-            onNavigateScreen('cozinha');
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            activeScreen === 'cozinha'
-              ? 'bg-amber-500 text-zinc-950 shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-          title="Cozinha KDS (/cozinha) - Senha: MARE123"
-        >
-          <ChefHat className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Cozinha</span>
-        </a>
+        <div className="flex items-center">
+          <a
+            href="/cozinha"
+            onClick={(e) => {
+              e.preventDefault();
+              playTouchSound(550);
+              onNavigateScreen('cozinha');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-l-xl text-xs font-bold transition-all ${
+              activeScreen === 'cozinha'
+                ? 'bg-amber-500 text-zinc-950 shadow-md'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+            title="Cozinha KDS - Senha: MARE123"
+          >
+            <ChefHat className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cozinha</span>
+          </a>
+          <a
+            href="#/cozinha"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-1.5 py-1.5 text-zinc-500 hover:text-amber-400 text-[10px] rounded-r-xl hover:bg-zinc-800 transition-colors"
+            title="Abrir Cozinha em Nova Aba"
+          >
+            ↗
+          </a>
+        </div>
 
-        <a
-          href="/painel"
-          onClick={(e) => {
-            e.preventDefault();
-            playTouchSound(550);
-            onNavigateScreen('painel');
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            activeScreen === 'painel'
-              ? 'bg-amber-500 text-zinc-950 shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-          title="Painel de Chamadas TV (/painel)"
-        >
-          <Tv className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Painel TV</span>
-        </a>
+        <div className="flex items-center">
+          <a
+            href="/painel"
+            onClick={(e) => {
+              e.preventDefault();
+              playTouchSound(550);
+              onNavigateScreen('painel');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-l-xl text-xs font-bold transition-all ${
+              activeScreen === 'painel'
+                ? 'bg-amber-500 text-zinc-950 shadow-md'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+            title="Painel de Chamadas TV"
+          >
+            <Tv className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Painel TV</span>
+          </a>
+          <a
+            href="#/painel"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-1.5 py-1.5 text-zinc-500 hover:text-amber-400 text-[10px] rounded-r-xl hover:bg-zinc-800 transition-colors"
+            title="Abrir Painel TV em Nova Aba"
+          >
+            ↗
+          </a>
+        </div>
       </div>
 
       {/* Zone 3: Session Context & Reset */}
