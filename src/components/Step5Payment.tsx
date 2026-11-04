@@ -1,0 +1,408 @@
+import React, { useState } from 'react';
+import { ArrowLeft, QrCode, CreditCard, Banknote, ShieldCheck, CheckCircle2, Copy, Check, Clock, AlertCircle } from 'lucide-react';
+import { CartItem, OrderType, PaymentMethod } from '../types';
+import { playTouchSound, playSuccessChime } from '../utils/sound';
+
+interface Step5PaymentProps {
+  orderType: OrderType;
+  tableNumber?: string;
+  items: CartItem[];
+  cartTotal: number;
+  onBack: () => void;
+  onConfirmPayment: (method: PaymentMethod, isPaidImmediately: boolean) => void;
+}
+
+export const Step5Payment: React.FC<Step5PaymentProps> = ({
+  orderType,
+  tableNumber,
+  items,
+  cartTotal,
+  onBack,
+  onConfirmPayment,
+}) => {
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('pix');
+  const [pixCopied, setPixCopied] = useState(false);
+  const [isSimulatingPix, setIsSimulatingPix] = useState(false);
+
+  const mockPixPayload = `00020126580014BR.GOV.BCB.PIX0136marehamburgueria@kiosk.com.br520400005303986540${cartTotal.toFixed(2)}5802BR5925MARE HAMBURGUERIA LTDA6009SAO PAULO62070503***6304E8A2`;
+
+  const handleCopyPix = () => {
+    playTouchSound(550);
+    navigator.clipboard?.writeText(mockPixPayload);
+    setPixCopied(true);
+    setTimeout(() => setPixCopied(false), 2000);
+  };
+
+  const handleSimulatePixSuccess = () => {
+    setIsSimulatingPix(true);
+    playTouchSound(600);
+    setTimeout(() => {
+      playSuccessChime();
+      onConfirmPayment('pix', true);
+    }, 1200);
+  };
+
+  const handleConfirmCounterPayment = () => {
+    playSuccessChime();
+    onConfirmPayment(selectedMethod, false);
+  };
+
+  return (
+    <div className="min-h-[calc(100vh-65px)] bg-zinc-950 p-4 sm:p-8 max-w-6xl mx-auto w-full flex flex-col justify-between">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between pb-6 border-b border-zinc-800/80">
+        <button
+          onClick={() => {
+            playTouchSound(480);
+            onBack();
+          }}
+          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 font-semibold text-sm hover:bg-zinc-800 hover:text-white active:scale-95 transition-all min-h-[48px]"
+        >
+          <ArrowLeft className="w-5 h-5 text-amber-500" />
+          <span>Voltar ao Cardápio</span>
+        </button>
+
+        <div className="text-zinc-500 text-xs sm:text-sm font-semibold uppercase tracking-widest">
+          Etapa 3 de 4 · Pagamento
+        </div>
+      </div>
+
+      {/* Main Grid: Left = Summary, Right = Payment Methods */}
+      <div className="my-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column (5 cols): Order Summary */}
+        <div className="lg:col-span-5 bg-zinc-900/90 border border-zinc-800 rounded-3xl p-6 shadow-xl space-y-5">
+          <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+            <div>
+              <span className="text-[11px] uppercase font-bold text-amber-400 tracking-wider block">
+                Resumo do Pedido
+              </span>
+              <h3 className="font-display text-2xl font-bold uppercase text-zinc-100">
+                {orderType === 'local'
+                  ? `Mesa ${tableNumber || '01'} · Salão`
+                  : 'Embalagem para Viagem'}
+              </h3>
+            </div>
+            <div className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs font-semibold">
+              {items.reduce((acc, i) => acc + i.quantity, 0)} itens
+            </div>
+          </div>
+
+          {/* List of items */}
+          <div className="max-h-72 overflow-y-auto custom-kiosk-scroll space-y-3 pr-1">
+            {items.map((item) => (
+              <div
+                key={item.cartItemId}
+                className="flex items-start justify-between text-xs sm:text-sm pb-2.5 border-b border-zinc-800/60"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
+                    <span className="text-amber-400 font-bold">{item.quantity}x</span>
+                    <span>{item.product.name}</span>
+                  </div>
+                  {item.customization && (
+                    <div className="text-[11px] text-zinc-400 mt-0.5 space-y-0.5">
+                      {item.product.isBurger && <div>Ponto: {item.customization.meatDoneness}</div>}
+                      {item.customization.removedIngredients.length > 0 && (
+                        <div className="text-red-400">
+                          Sem: {item.customization.removedIngredients.join(', ')}
+                        </div>
+                      )}
+                      {Object.keys(item.customization.selectedAddons).length > 0 && (
+                        <div className="text-amber-400/90">
+                          +{Object.keys(item.customization.selectedAddons).length} adicional(is)
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <span className="font-mono font-bold text-zinc-200 shrink-0">
+                  R$ {item.totalPrice.toFixed(2).replace('.', ',')}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Price Totals */}
+          <div className="pt-2 border-t border-zinc-800 space-y-2">
+            <div className="flex items-center justify-between text-zinc-400 text-xs sm:text-sm">
+              <span>Subtotal</span>
+              <span className="font-mono">R$ {cartTotal.toFixed(2).replace('.', ',')}</span>
+            </div>
+            <div className="flex items-center justify-between text-zinc-400 text-xs sm:text-sm">
+              <span>Taxa de Serviço</span>
+              <span className="text-emerald-400 font-semibold">Grátis (Totem)</span>
+            </div>
+            <div className="flex items-center justify-between text-zinc-100 pt-2 border-t border-zinc-800">
+              <span className="font-display text-xl uppercase font-bold">Total do Pedido</span>
+              <span className="font-mono text-3xl font-black text-amber-400 tabular-nums">
+                R$ {cartTotal.toFixed(2).replace('.', ',')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (7 cols): Payment Method Selector */}
+        <div className="lg:col-span-7 bg-zinc-900/90 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+          <div>
+            <span className="text-xs uppercase font-bold text-amber-400 tracking-wider block">
+              Forma de Pagamento
+            </span>
+            <h3 className="font-display text-3xl font-bold uppercase text-zinc-100 mt-1">
+              Como deseja pagar?
+            </h3>
+            <p className="text-zinc-400 text-xs sm:text-sm mt-1">
+              Selecione o método abaixo para emitir sua senha e enviar para a chapa
+            </p>
+          </div>
+
+          {/* 3 Payment Tabs / Buttons */}
+          <div className="grid grid-cols-3 gap-3">
+            {/* 1. Pix */}
+            <button
+              type="button"
+              onClick={() => {
+                playTouchSound(560);
+                setSelectedMethod('pix');
+              }}
+              className={`p-4 rounded-2xl border text-center transition-all active:scale-95 flex flex-col items-center justify-center gap-2 min-h-[90px] ${
+                selectedMethod === 'pix'
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold shadow-lg shadow-amber-500/20'
+                  : 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border-zinc-700'
+              }`}
+            >
+              <QrCode className="w-7 h-7" />
+              <div className="leading-tight">
+                <span className="font-display text-sm sm:text-base font-bold uppercase block">
+                  Pix na Tela
+                </span>
+                <span className="text-[10px] opacity-80 block">Aprovação na hora</span>
+              </div>
+            </button>
+
+            {/* 2. Cartão */}
+            <button
+              type="button"
+              onClick={() => {
+                playTouchSound(560);
+                setSelectedMethod('cartao_balcao');
+              }}
+              className={`p-4 rounded-2xl border text-center transition-all active:scale-95 flex flex-col items-center justify-center gap-2 min-h-[90px] ${
+                selectedMethod === 'cartao_balcao'
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold shadow-lg shadow-amber-500/20'
+                  : 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border-zinc-700'
+              }`}
+            >
+              <CreditCard className="w-7 h-7" />
+              <div className="leading-tight">
+                <span className="font-display text-sm sm:text-base font-bold uppercase block">
+                  Cartão
+                </span>
+                <span className="text-[10px] opacity-80 block">Débito / Crédito</span>
+              </div>
+            </button>
+
+            {/* 3. Dinheiro */}
+            <button
+              type="button"
+              onClick={() => {
+                playTouchSound(560);
+                setSelectedMethod('dinheiro_balcao');
+              }}
+              className={`p-4 rounded-2xl border text-center transition-all active:scale-95 flex flex-col items-center justify-center gap-2 min-h-[90px] ${
+                selectedMethod === 'dinheiro_balcao'
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold shadow-lg shadow-amber-500/20'
+                  : 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border-zinc-700'
+              }`}
+            >
+              <Banknote className="w-7 h-7" />
+              <div className="leading-tight">
+                <span className="font-display text-sm sm:text-base font-bold uppercase block">
+                  Dinheiro
+                </span>
+                <span className="text-[10px] opacity-80 block">No Balcão</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Conditional Content depending on method */}
+          {selectedMethod === 'pix' && (
+            <div className="bg-zinc-950/80 border border-zinc-800 rounded-3xl p-6 space-y-5 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                {/* Simulated QR Code SVG */}
+                <div className="relative p-3 bg-white rounded-2xl shadow-xl shrink-0">
+                  <svg
+                    viewBox="0 0 160 160"
+                    className="w-36 h-36 sm:w-44 sm:h-44 text-zinc-950"
+                    fill="currentColor"
+                  >
+                    {/* Corner Squares */}
+                    <rect x="10" y="10" width="40" height="40" rx="4" />
+                    <rect x="18" y="18" width="24" height="24" fill="white" />
+                    <rect x="24" y="24" width="12" height="12" />
+
+                    <rect x="110" y="10" width="40" height="40" rx="4" />
+                    <rect x="118" y="18" width="24" height="24" fill="white" />
+                    <rect x="124" y="24" width="12" height="12" />
+
+                    <rect x="10" y="110" width="40" height="40" rx="4" />
+                    <rect x="18" y="118" width="24" height="24" fill="white" />
+                    <rect x="24" y="124" width="12" height="12" />
+
+                    {/* Decorative QR matrix pattern */}
+                    <rect x="60" y="15" width="10" height="10" />
+                    <rect x="75" y="15" width="20" height="10" />
+                    <rect x="60" y="35" width="15" height="10" />
+                    <rect x="85" y="35" width="15" height="15" />
+                    <rect x="15" y="60" width="15" height="10" />
+                    <rect x="35" y="60" width="15" height="15" />
+                    <rect x="60" y="60" width="40" height="40" rx="4" />
+                    <circle cx="80" cy="80" r="10" fill="white" />
+                    <rect x="76" y="76" width="8" height="8" fill="#F59E0B" />
+                    <rect x="110" y="60" width="15" height="20" />
+                    <rect x="135" y="60" width="15" height="15" />
+                    <rect x="15" y="85" width="25" height="15" />
+                    <rect x="110" y="90" width="20" height="15" />
+                    <rect x="135" y="90" width="15" height="20" />
+                    <rect x="60" y="110" width="20" height="15" />
+                    <rect x="90" y="110" width="15" height="15" />
+                    <rect x="115" y="115" width="30" height="10" />
+                    <rect x="60" y="135" width="15" height="15" />
+                    <rect x="85" y="130" width="20" height="20" />
+                    <rect x="120" y="135" width="25" height="15" />
+                  </svg>
+
+                  <div className="text-[10px] text-center font-bold text-zinc-800 uppercase tracking-wider mt-1">
+                    Maré Hamburgueria Pix
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="space-y-3 text-center sm:text-left flex-1">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Pagamento Seguro Instantâneo</span>
+                  </div>
+
+                  <p className="text-zinc-200 text-sm sm:text-base font-medium leading-snug">
+                    Abra o app do seu banco, escolha <strong>Pix</strong> e aponte a câmera para o QR Code.
+                  </p>
+
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs text-zinc-400">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    <span>QR Code válido por 10 minutos</span>
+                  </div>
+
+                  {/* Copy Pix Key button */}
+                  <button
+                    type="button"
+                    onClick={handleCopyPix}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-amber-500 text-zinc-300 text-xs font-semibold flex items-center justify-center gap-2 active:scale-95"
+                  >
+                    {pixCopied ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span className="text-emerald-400 font-bold">Código Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-amber-400" />
+                        <span>Copiar Código Pix Copia-e-Cola</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Instant Simulator Button */}
+              <div className="pt-3 border-t border-zinc-800">
+                <button
+                  type="button"
+                  disabled={isSimulatingPix}
+                  onClick={handleSimulatePixSuccess}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-display font-extrabold text-base uppercase tracking-wider shadow-lg shadow-emerald-500/20 active:scale-98 transition-all flex items-center justify-center gap-2 min-h-[54px]"
+                >
+                  {isSimulatingPix ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Confirmando Pagamento via Banco Central...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Simular Confirmação do Pix (Aprovação Imediata)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {selectedMethod === 'cartao_balcao' && (
+            <div className="bg-zinc-950/80 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6 text-center animate-in fade-in duration-200">
+              <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                <CreditCard className="w-10 h-10" />
+              </div>
+
+              <div className="max-w-md mx-auto space-y-2">
+                <h4 className="font-display text-2xl font-bold uppercase text-zinc-100">
+                  Pagamento na Maquininha
+                </h4>
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  Aceitamos <strong>Débito, Crédito e Vale-Refeição</strong> (Alelo, Sodexo, Ticket, VR).
+                </p>
+                <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 text-left flex items-start gap-2 mt-4">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <span>
+                    Ao confirmar, uma senha será emitida e seu pedido entrará na fila de produção. Pague na maquininha ao lado do totem ou diretamente no balcão de retirada.
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleConfirmCounterPayment}
+                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-base uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 transition-all min-h-[54px] flex items-center justify-center gap-2"
+              >
+                <span>Confirmar e Emitir Senha do Pedido</span>
+                <Check className="w-5 h-5 stroke-[3]" />
+              </button>
+            </div>
+          )}
+
+          {selectedMethod === 'dinheiro_balcao' && (
+            <div className="bg-zinc-950/80 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6 text-center animate-in fade-in duration-200">
+              <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                <Banknote className="w-10 h-10" />
+              </div>
+
+              <div className="max-w-md mx-auto space-y-2">
+                <h4 className="font-display text-2xl font-bold uppercase text-zinc-100">
+                  Pagamento em Dinheiro no Caixa
+                </h4>
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  Dirija-se ao caixa com sua senha em mãos para efetuar o pagamento em cédulas ou moedas.
+                </p>
+                <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 text-left flex items-start gap-2 mt-4">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <span>
+                    A cozinha iniciará o preparo do seu pedido assim que o pagamento for registrado no caixa do restaurante.
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleConfirmCounterPayment}
+                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-base uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 transition-all min-h-[54px] flex items-center justify-center gap-2"
+              >
+                <span>Confirmar e Emitir Senha do Pedido</span>
+                <Check className="w-5 h-5 stroke-[3]" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

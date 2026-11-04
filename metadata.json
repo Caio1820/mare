@@ -1,0 +1,6 @@
+{
+  "name": "Maré | Hambúrgueria - Totem de Autoatendimento",
+  "description": "Totem de autoatendimento touch-first e PDV interativo para a Maré Hambúrgueria com cardápio oficial, personalização de lanches, pagamento Pix/Cartão e integração com KDS da cozinha.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
