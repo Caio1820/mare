@@ -1,5 +1,18 @@
 import React, { useState } from 'react';
-import { ArrowLeft, QrCode, CreditCard, Banknote, ShieldCheck, CheckCircle2, Copy, Check, Clock, AlertCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  QrCode,
+  CreditCard,
+  Banknote,
+  ShieldCheck,
+  CheckCircle2,
+  Copy,
+  Check,
+  Clock,
+  AlertCircle,
+  User,
+  MessageSquare,
+} from 'lucide-react';
 import { CartItem, OrderType, PaymentMethod } from '../types';
 import { playTouchSound, playSuccessChime } from '../utils/sound';
 
@@ -9,7 +22,12 @@ interface Step5PaymentProps {
   items: CartItem[];
   cartTotal: number;
   onBack: () => void;
-  onConfirmPayment: (method: PaymentMethod, isPaidImmediately: boolean) => void;
+  onConfirmPayment: (
+    method: PaymentMethod,
+    isPaidImmediately: boolean,
+    customerName: string,
+    observations: string
+  ) => void;
 }
 
 export const Step5Payment: React.FC<Step5PaymentProps> = ({
@@ -20,11 +38,24 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
   onBack,
   onConfirmPayment,
 }) => {
+  const [customerName, setCustomerName] = useState<string>('');
+  const [observations, setObservations] = useState<string>('');
+  const [nameError, setNameError] = useState<string>('');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('pix');
   const [pixCopied, setPixCopied] = useState(false);
   const [isSimulatingPix, setIsSimulatingPix] = useState(false);
 
   const mockPixPayload = `00020126580014BR.GOV.BCB.PIX0136marehamburgueria@kiosk.com.br520400005303986540${cartTotal.toFixed(2)}5802BR5925MARE HAMBURGUERIA LTDA6009SAO PAULO62070503***6304E8A2`;
+
+  const validateName = (): boolean => {
+    if (!customerName || !customerName.trim()) {
+      setNameError('Por favor, informe seu nome para que possamos chamá-lo no painel de TV.');
+      playTouchSound(380);
+      return false;
+    }
+    setNameError('');
+    return true;
+  };
 
   const handleCopyPix = () => {
     playTouchSound(550);
@@ -34,18 +65,29 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
   };
 
   const handleSimulatePixSuccess = () => {
+    if (!validateName()) return;
     setIsSimulatingPix(true);
     playTouchSound(600);
     setTimeout(() => {
       playSuccessChime();
-      onConfirmPayment('pix', true);
-    }, 1200);
+      onConfirmPayment('pix', true, customerName.trim(), observations.trim());
+    }, 1100);
   };
 
   const handleConfirmCounterPayment = () => {
+    if (!validateName()) return;
     playSuccessChime();
-    onConfirmPayment(selectedMethod, false);
+    onConfirmPayment(selectedMethod, false, customerName.trim(), observations.trim());
   };
+
+  const quickObservationTags = [
+    'Sem cebola',
+    'Sem picles',
+    'Sem molho',
+    'Talher descartável',
+    'Caprichar no guardanapo',
+    'Maionese à parte',
+  ];
 
   return (
     <div className="min-h-[calc(100vh-65px)] bg-zinc-950 p-4 sm:p-8 max-w-6xl mx-auto w-full flex flex-col justify-between">
@@ -63,78 +105,159 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
         </button>
 
         <div className="text-zinc-500 text-xs sm:text-sm font-semibold uppercase tracking-widest">
-          Etapa 3 de 4 · Pagamento
+          Etapa 3 de 4 · Identificação & Pagamento
         </div>
       </div>
 
-      {/* Main Grid: Left = Summary, Right = Payment Methods */}
+      {/* Main Grid: Left = Identification & Summary, Right = Payment Methods */}
       <div className="my-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column (5 cols): Order Summary */}
-        <div className="lg:col-span-5 bg-zinc-900/90 border border-zinc-800 rounded-3xl p-6 shadow-xl space-y-5">
-          <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
-            <div>
-              <span className="text-[11px] uppercase font-bold text-amber-400 tracking-wider block">
-                Resumo do Pedido
-              </span>
-              <h3 className="font-display text-2xl font-bold uppercase text-zinc-100">
-                {orderType === 'local'
-                  ? `Mesa ${tableNumber || '01'} · Salão`
-                  : 'Embalagem para Viagem'}
-              </h3>
-            </div>
-            <div className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs font-semibold">
-              {items.reduce((acc, i) => acc + i.quantity, 0)} itens
-            </div>
-          </div>
-
-          {/* List of items */}
-          <div className="max-h-72 overflow-y-auto custom-kiosk-scroll space-y-3 pr-1">
-            {items.map((item) => (
-              <div
-                key={item.cartItemId}
-                className="flex items-start justify-between text-xs sm:text-sm pb-2.5 border-b border-zinc-800/60"
-              >
-                <div>
-                  <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
-                    <span className="text-amber-400 font-bold">{item.quantity}x</span>
-                    <span>{item.product.name}</span>
-                  </div>
-                  {item.customization && (
-                    <div className="text-[11px] text-zinc-400 mt-0.5 space-y-0.5">
-                      {item.product.isBurger && <div>Ponto: {item.customization.meatDoneness}</div>}
-                      {item.customization.removedIngredients.length > 0 && (
-                        <div className="text-red-400">
-                          Sem: {item.customization.removedIngredients.join(', ')}
-                        </div>
-                      )}
-                      {Object.keys(item.customization.selectedAddons).length > 0 && (
-                        <div className="text-amber-400/90">
-                          +{Object.keys(item.customization.selectedAddons).length} adicional(is)
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <span className="font-mono font-bold text-zinc-200 shrink-0">
-                  R$ {item.totalPrice.toFixed(2).replace('.', ',')}
-                </span>
+        {/* Left Column (5 cols): Customer Identification & Order Summary */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Customer Name Input (MANDATORY REQUIREMENT) */}
+          <div className="bg-zinc-900/90 border-2 border-amber-500/50 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                <User className="w-5 h-5" />
               </div>
-            ))}
+              <div>
+                <h3 className="font-display text-xl font-bold uppercase text-zinc-100">
+                  Identificação do Cliente <span className="text-amber-400">*</span>
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Seu nome aparecerá na tela do Painel de TV
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs uppercase font-bold text-zinc-400 block mb-1.5">
+                Digite seu Nome Completo ou Primeiro Nome:
+              </label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => {
+                  setCustomerName(e.target.value);
+                  if (nameError) setNameError('');
+                }}
+                placeholder="Ex: João Silva"
+                className={`w-full bg-zinc-950 border rounded-2xl px-4 py-3.5 text-base sm:text-lg text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-semibold ${
+                  nameError
+                    ? 'border-red-500 ring-2 ring-red-500/20'
+                    : 'border-zinc-700 focus:border-amber-400'
+                }`}
+              />
+              {nameError && (
+                <div className="mt-2 text-xs text-red-400 flex items-center gap-1.5 font-medium animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{nameError}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Observations input */}
+            <div className="pt-2 border-t border-zinc-800">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 mb-2">
+                <MessageSquare className="w-3.5 h-3.5 text-amber-500" />
+                <span>Observações do Pedido (Opcional):</span>
+              </div>
+              <input
+                type="text"
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                placeholder="Ex: Sem cebola, talher descartável..."
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-400"
+              />
+
+              {/* Quick tags */}
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {quickObservationTags.map((tag) => {
+                  const active = observations.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        playTouchSound(520);
+                        setObservations((prev) =>
+                          active
+                            ? prev.replace(tag, '').replace(/,\s*,/g, ',').trim()
+                            : prev
+                            ? `${prev}, ${tag}`
+                            : tag
+                        );
+                      }}
+                      className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
+                        active
+                          ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      + {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Price Totals */}
-          <div className="pt-2 border-t border-zinc-800 space-y-2">
-            <div className="flex items-center justify-between text-zinc-400 text-xs sm:text-sm">
-              <span>Subtotal</span>
-              <span className="font-mono">R$ {cartTotal.toFixed(2).replace('.', ',')}</span>
+          {/* Order Summary Card */}
+          <div className="bg-zinc-900/90 border border-zinc-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div>
+                <span className="text-[11px] uppercase font-bold text-amber-400 tracking-wider block">
+                  Resumo do Pedido
+                </span>
+                <h3 className="font-display text-xl font-bold uppercase text-zinc-100">
+                  {orderType === 'local'
+                    ? `Mesa ${tableNumber || '01'} · Salão`
+                    : 'Embalagem para Viagem'}
+                </h3>
+              </div>
+              <div className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs font-semibold">
+                {items.reduce((acc, i) => acc + i.quantity, 0)} itens
+              </div>
             </div>
-            <div className="flex items-center justify-between text-zinc-400 text-xs sm:text-sm">
-              <span>Taxa de Serviço</span>
-              <span className="text-emerald-400 font-semibold">Grátis (Totem)</span>
+
+            {/* List of items */}
+            <div className="max-h-56 overflow-y-auto custom-kiosk-scroll space-y-2.5 pr-1">
+              {items.map((item) => (
+                <div
+                  key={item.cartItemId}
+                  className="flex items-start justify-between text-xs sm:text-sm pb-2 border-b border-zinc-800/60"
+                >
+                  <div>
+                    <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
+                      <span className="text-amber-400 font-bold">{item.quantity}x</span>
+                      <span>{item.product.name}</span>
+                    </div>
+                    {item.customization && (
+                      <div className="text-[11px] text-zinc-400 mt-0.5 space-y-0.5">
+                        {item.product.isBurger && <div>Ponto: {item.customization.meatDoneness}</div>}
+                        {item.customization.removedIngredients.length > 0 && (
+                          <div className="text-red-400">
+                            Sem: {item.customization.removedIngredients.join(', ')}
+                          </div>
+                        )}
+                        {Object.keys(item.customization.selectedAddons).length > 0 && (
+                          <div className="text-amber-400/90">
+                            +{Object.keys(item.customization.selectedAddons).length} adicional(is)
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <span className="font-mono font-bold text-zinc-200 shrink-0">
+                    R$ {item.totalPrice.toFixed(2).replace('.', ',')}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center justify-between text-zinc-100 pt-2 border-t border-zinc-800">
-              <span className="font-display text-xl uppercase font-bold">Total do Pedido</span>
+
+            {/* Total */}
+            <div className="pt-2 border-t border-zinc-800 flex items-center justify-between text-zinc-100">
+              <span className="font-display text-xl uppercase font-bold">Total</span>
               <span className="font-mono text-3xl font-black text-amber-400 tabular-nums">
                 R$ {cartTotal.toFixed(2).replace('.', ',')}
               </span>
@@ -152,7 +275,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
               Como deseja pagar?
             </h3>
             <p className="text-zinc-400 text-xs sm:text-sm mt-1">
-              Selecione o método abaixo para emitir sua senha e enviar para a chapa
+              Selecione o método para emitir seu número de pedido e enviar para a chapa
             </p>
           </div>
 
@@ -198,7 +321,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                 <span className="font-display text-sm sm:text-base font-bold uppercase block">
                   Cartão
                 </span>
-                <span className="text-[10px] opacity-80 block">Débito / Crédito</span>
+                <span className="text-[10px] opacity-80 block">No Balcão</span>
               </div>
             </button>
 
@@ -220,7 +343,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                 <span className="font-display text-sm sm:text-base font-bold uppercase block">
                   Dinheiro
                 </span>
-                <span className="text-[10px] opacity-80 block">No Balcão</span>
+                <span className="text-[10px] opacity-80 block">No Caixa</span>
               </div>
             </button>
           </div>
@@ -236,7 +359,6 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                     className="w-36 h-36 sm:w-44 sm:h-44 text-zinc-950"
                     fill="currentColor"
                   >
-                    {/* Corner Squares */}
                     <rect x="10" y="10" width="40" height="40" rx="4" />
                     <rect x="18" y="18" width="24" height="24" fill="white" />
                     <rect x="24" y="24" width="12" height="12" />
@@ -249,7 +371,6 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                     <rect x="18" y="118" width="24" height="24" fill="white" />
                     <rect x="24" y="124" width="12" height="12" />
 
-                    {/* Decorative QR matrix pattern */}
                     <rect x="60" y="15" width="10" height="10" />
                     <rect x="75" y="15" width="20" height="10" />
                     <rect x="60" y="35" width="15" height="10" />
@@ -293,7 +414,6 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                     <span>QR Code válido por 10 minutos</span>
                   </div>
 
-                  {/* Copy Pix Key button */}
                   <button
                     type="button"
                     onClick={handleCopyPix}
@@ -330,7 +450,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                   ) : (
                     <>
                       <CheckCircle2 className="w-5 h-5" />
-                      <span>Simular Confirmação do Pix (Aprovação Imediata)</span>
+                      <span>Confirmar Pagamento Pix & Enviar Pedido</span>
                     </>
                   )}
                 </button>
@@ -354,7 +474,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                 <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 text-left flex items-start gap-2 mt-4">
                   <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    Ao confirmar, uma senha será emitida e seu pedido entrará na fila de produção. Pague na maquininha ao lado do totem ou diretamente no balcão de retirada.
+                    Ao confirmar, o número do seu pedido será gerado e enviado diretamente para a cozinha. Pague na maquininha do balcão.
                   </span>
                 </div>
               </div>
@@ -364,7 +484,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                 onClick={handleConfirmCounterPayment}
                 className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-base uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 transition-all min-h-[54px] flex items-center justify-center gap-2"
               >
-                <span>Confirmar e Emitir Senha do Pedido</span>
+                <span>Confirmar e Gerar Senha do Pedido</span>
                 <Check className="w-5 h-5 stroke-[3]" />
               </button>
             </div>
@@ -381,12 +501,12 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                   Pagamento em Dinheiro no Caixa
                 </h4>
                 <p className="text-sm text-zinc-300 leading-relaxed">
-                  Dirija-se ao caixa com sua senha em mãos para efetuar o pagamento em cédulas ou moedas.
+                  Dirija-se ao caixa com seu número em mãos para efetuar o pagamento.
                 </p>
                 <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-400 text-left flex items-start gap-2 mt-4">
                   <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    A cozinha iniciará o preparo do seu pedido assim que o pagamento for registrado no caixa do restaurante.
+                    Seu pedido será registrado e a equipe da cozinha iniciará a produção assim que o pagamento for registrado.
                   </span>
                 </div>
               </div>
@@ -396,7 +516,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                 onClick={handleConfirmCounterPayment}
                 className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-base uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 transition-all min-h-[54px] flex items-center justify-center gap-2"
               >
-                <span>Confirmar e Emitir Senha do Pedido</span>
+                <span>Confirmar e Gerar Senha do Pedido</span>
                 <Check className="w-5 h-5 stroke-[3]" />
               </button>
             </div>

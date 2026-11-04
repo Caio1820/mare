@@ -1,0 +1,196 @@
+[
+  {
+    "id": "ord-1793802977528-0h58",
+    "orderNumber": "#004",
+    "customerName": "Mariana",
+    "orderType": "local",
+    "tableNumber": "05",
+    "items": [
+      {
+        "cartItemId": "test1",
+        "product": {
+          "id": "smash_mare",
+          "name": "Smash Maré",
+          "categoryId": "smash",
+          "categoryLabel": "Onda Smash",
+          "price": 16.9,
+          "description": "",
+          "image": "/src/assets/images/mare_smash_burger_1793068213279.jpg",
+          "isBurger": true,
+          "defaultIngredients": [],
+          "suggestedAddons": []
+        },
+        "quantity": 1,
+        "unitPrice": 16.9,
+        "totalPrice": 16.9
+      }
+    ],
+    "observations": "Sem maionese",
+    "subtotal": 16.9,
+    "total": 16.9,
+    "paymentMethod": "pix",
+    "paymentStatus": "pago",
+    "status": "recebido",
+    "createdAt": 1793802977528,
+    "formattedTime": "14:36",
+    "estimatedMinutes": 15
+  },
+  {
+    "id": "ord-seed-01",
+    "orderNumber": "#001",
+    "customerName": "Carlos Silva",
+    "orderType": "local",
+    "tableNumber": "03",
+    "items": [
+      {
+        "cartItemId": "item-seed-1",
+        "product": {
+          "id": "bacon_caramelizado",
+          "name": "Bacon Caramelizado",
+          "categoryId": "artesanais",
+          "categoryLabel": "Alto-Mar",
+          "price": 34.9,
+          "description": "Blend bovino 180g na brasa...",
+          "image": "/src/assets/images/hero_idle_burger_1793068213371.jpg",
+          "isBurger": true,
+          "defaultIngredients": [
+            "Pão brioche",
+            "Blend 180g",
+            "Bacon caramelizado"
+          ],
+          "suggestedAddons": []
+        },
+        "quantity": 1,
+        "customization": {
+          "meatDoneness": "Ao ponto",
+          "removedIngredients": [
+            "Cebola roxa"
+          ],
+          "selectedAddons": {
+            "queijo_extra": 1
+          },
+          "specialNotes": "Bacon bem tostadinho por favor"
+        },
+        "unitPrice": 39.4,
+        "totalPrice": 39.4
+      },
+      {
+        "cartItemId": "item-seed-2",
+        "product": {
+          "id": "batata_mare",
+          "name": "Batata da Maré",
+          "categoryId": "entradas",
+          "categoryLabel": "Primeira Onda",
+          "price": 24.9,
+          "description": "",
+          "image": "/src/assets/images/mare_porcoes_batata_1793068213557.jpg",
+          "isBurger": false,
+          "defaultIngredients": [
+            "Batatas rústicas"
+          ],
+          "suggestedAddons": []
+        },
+        "quantity": 1,
+        "unitPrice": 24.9,
+        "totalPrice": 24.9
+      }
+    ],
+    "observations": "Sem guardanapos plásticos, por favor.",
+    "subtotal": 64.3,
+    "total": 64.3,
+    "paymentMethod": "pix",
+    "paymentStatus": "pago",
+    "status": "preparo",
+    "createdAt": 1793802306516,
+    "formattedTime": "13:45",
+    "estimatedMinutes": 15
+  },
+  {
+    "id": "ord-seed-02",
+    "orderNumber": "#002",
+    "customerName": "Mariana Costa",
+    "orderType": "viagem",
+    "items": [
+      {
+        "cartItemId": "item-seed-3",
+        "product": {
+          "id": "costela_queijo_regional",
+          "name": "Costela com Queijo Regional",
+          "categoryId": "prime",
+          "categoryLabel": "Maré Nobre",
+          "price": 39.9,
+          "description": "",
+          "image": "/src/assets/images/mare_nobre_burger_1793068212982.jpg",
+          "isBurger": true,
+          "defaultIngredients": [
+            "Pão australiano",
+            "Blend nobre 200g"
+          ],
+          "suggestedAddons": []
+        },
+        "quantity": 1,
+        "customization": {
+          "meatDoneness": "Bem passado",
+          "removedIngredients": [],
+          "selectedAddons": {},
+          "specialNotes": ""
+        },
+        "unitPrice": 39.9,
+        "totalPrice": 39.9
+      }
+    ],
+    "observations": "Embalar bem para viagem de moto.",
+    "subtotal": 39.9,
+    "total": 39.9,
+    "paymentMethod": "cartao_balcao",
+    "paymentStatus": "pago",
+    "status": "recebido",
+    "createdAt": 1793802606516,
+    "formattedTime": "13:50",
+    "estimatedMinutes": 15
+  },
+  {
+    "id": "ord-seed-03",
+    "orderNumber": "#003",
+    "customerName": "Lucas Lima",
+    "orderType": "local",
+    "tableNumber": "07",
+    "items": [
+      {
+        "cartItemId": "item-seed-4",
+        "product": {
+          "id": "smash_duas_ondas",
+          "name": "Smash Duas Ondas",
+          "categoryId": "smash",
+          "categoryLabel": "Onda Smash",
+          "price": 23.9,
+          "description": "",
+          "image": "/src/assets/images/mare_smash_burger_1793068213279.jpg",
+          "isBurger": true,
+          "defaultIngredients": [],
+          "suggestedAddons": []
+        },
+        "quantity": 2,
+        "customization": {
+          "meatDoneness": "Ao ponto",
+          "removedIngredients": [
+            "Picles artesanal"
+          ],
+          "selectedAddons": {},
+          "specialNotes": ""
+        },
+        "unitPrice": 23.9,
+        "totalPrice": 47.8
+      }
+    ],
+    "observations": "",
+    "subtotal": 47.8,
+    "total": 47.8,
+    "paymentMethod": "pix",
+    "paymentStatus": "pago",
+    "status": "pronto",
+    "createdAt": 1793801646516,
+    "formattedTime": "13:34",
+    "estimatedMinutes": 15
+  }
+]

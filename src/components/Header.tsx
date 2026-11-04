@@ -1,6 +1,6 @@
 import React from 'react';
-import { RotateCcw, ChefHat, Monitor, MapPin } from 'lucide-react';
-import { OrderType } from '../types';
+import { RotateCcw, ChefHat, Tv, Touchpad, MapPin } from 'lucide-react';
+import { OrderType, AppScreen } from '../types';
 import { playTouchSound } from '../utils/sound';
 
 interface HeaderProps {
@@ -8,10 +8,9 @@ interface HeaderProps {
   orderType: OrderType | null;
   tableNumber?: string;
   onReset: () => void;
-  isKdsActive: boolean;
-  onToggleKds: () => void;
+  activeScreen: AppScreen;
+  onNavigateScreen: (screen: AppScreen) => void;
   cartCount: number;
-  onOpenCart?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,8 +18,8 @@ export const Header: React.FC<HeaderProps> = ({
   orderType,
   tableNumber,
   onReset,
-  isKdsActive,
-  onToggleKds,
+  activeScreen,
+  onNavigateScreen,
 }) => {
   return (
     <header className="relative z-30 w-full bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
@@ -29,11 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={() => {
             playTouchSound(500);
-            if (currentStep !== 'idle' && !isKdsActive) {
-              if (window.confirm('Deseja cancelar o pedido atual e voltar ao início?')) {
-                onReset();
-              }
-            }
+            onNavigateScreen('autoatendimento');
           }}
           className="flex items-center gap-2.5 text-left focus:outline-none group"
         >
@@ -51,52 +46,74 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* Zone 2: Quiet session context */}
-      <div className="hidden sm:flex items-center gap-3 text-xs md:text-sm text-zinc-400 font-medium">
-        {orderType && (
-          <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full text-zinc-300">
+      {/* Zone 2: Navigation between screens */}
+      <div className="flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 p-1 rounded-2xl">
+        <button
+          onClick={() => {
+            playTouchSound(550);
+            onNavigateScreen('autoatendimento');
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            activeScreen === 'autoatendimento'
+              ? 'bg-amber-500 text-zinc-950 shadow-md'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+          title="Totem do Cliente"
+        >
+          <Touchpad className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Autoatendimento</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playTouchSound(550);
+            onNavigateScreen('cozinha');
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            activeScreen === 'cozinha'
+              ? 'bg-amber-500 text-zinc-950 shadow-md'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+          title="Cozinha (Restrito por senha)"
+        >
+          <ChefHat className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Cozinha</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playTouchSound(550);
+            onNavigateScreen('painel');
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            activeScreen === 'painel'
+              ? 'bg-amber-500 text-zinc-950 shadow-md'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+          title="Painel de Chamadas (TV)"
+        >
+          <Tv className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Painel TV</span>
+        </button>
+      </div>
+
+      {/* Zone 3: Session Context & Reset */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        {activeScreen === 'autoatendimento' && orderType && (
+          <div className="hidden lg:flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full text-zinc-300 text-xs font-medium">
             <MapPin className="w-3.5 h-3.5 text-amber-400" />
             <span>
               {orderType === 'local'
                 ? tableNumber
-                  ? `Mesa ${tableNumber} · Consumo no Local`
-                  : 'Consumo no Local'
-                : 'Pedido para Viagem'}
+                  ? `Mesa ${tableNumber} · Salão`
+                  : 'No Local'
+                : 'Para Viagem'}
             </span>
           </div>
         )}
-      </div>
 
-      {/* Zone 3: Actions */}
-      <div className="flex items-center gap-2.5 shrink-0">
-        {/* KDS Kitchen toggle */}
-        <button
-          onClick={() => {
-            playTouchSound(700);
-            onToggleKds();
-          }}
-          className={`px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all active:scale-95 border ${
-            isKdsActive
-              ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold shadow-md shadow-amber-500/20'
-              : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
-          }`}
-          title="Alternar entre Totem do Cliente e KDS da Cozinha"
-        >
-          {isKdsActive ? (
-            <>
-              <Monitor className="w-4 h-4" />
-              <span>Totem Cliente</span>
-            </>
-          ) : (
-            <>
-              <ChefHat className="w-4 h-4 text-amber-400" />
-              <span>Cozinha KDS</span>
-            </>
-          )}
-        </button>
-
-        {/* Reset button if inside order flow */}
-        {currentStep !== 'idle' && !isKdsActive && (
+        {/* Reset button if inside order flow in Kiosk */}
+        {activeScreen === 'autoatendimento' && currentStep !== 'idle' && (
           <button
             onClick={() => {
               playTouchSound(450);
@@ -105,6 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
               }
             }}
             className="px-3 py-2 text-xs font-semibold bg-zinc-900 hover:bg-red-950/40 text-zinc-400 hover:text-red-400 border border-zinc-800 hover:border-red-800/50 rounded-lg flex items-center gap-1.5 transition-colors active:scale-95"
+            title="Reiniciar Pedido"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Reiniciar</span>

@@ -1,5 +1,14 @@
-import { useState, useMemo, useCallback } from 'react';
-import { KioskStep, OrderType, Product, CustomizationSelection, CartItem, PaymentMethod, Order } from './types';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import {
+  KioskStep,
+  OrderType,
+  Product,
+  CustomizationSelection,
+  CartItem,
+  PaymentMethod,
+  Order,
+  AppScreen,
+} from './types';
 import { Header } from './components/Header';
 import { Step1Idle } from './components/Step1Idle';
 import { Step2OrderType } from './components/Step2OrderType';
@@ -8,16 +17,58 @@ import { CartDrawer } from './components/CartDrawer';
 import { Step5Payment } from './components/Step5Payment';
 import { Step6Confirmation } from './components/Step6Confirmation';
 import { KdsView } from './components/KdsView';
-import { getNextOrderNumber, submitOrderToKds } from './utils/kdsStore';
+import { TvPanel } from './components/TvPanel';
+import { createOrder } from './utils/kdsStore';
+
+function getScreenFromUrl(): AppScreen {
+  if (typeof window === 'undefined') return 'autoatendimento';
+  const path = window.location.pathname.toLowerCase();
+  const hash = window.location.hash.toLowerCase();
+
+  if (path.includes('cozinha') || hash.includes('cozinha')) {
+    return 'cozinha';
+  }
+  if (path.includes('painel') || hash.includes('painel')) {
+    return 'painel';
+  }
+  return 'autoatendimento';
+}
 
 export default function App() {
+  const [activeScreen, setActiveScreen] = useState<AppScreen>(getScreenFromUrl);
   const [currentStep, setCurrentStep] = useState<KioskStep>('idle');
   const [orderType, setOrderType] = useState<OrderType | null>(null);
   const [tableNumber, setTableNumber] = useState<string>('01');
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
   const [lastConfirmedOrder, setLastConfirmedOrder] = useState<Order | null>(null);
-  const [isKdsViewActive, setIsKdsViewActive] = useState<boolean>(false);
+
+  // Sync with browser URL changes (pathname or hash)
+  useEffect(() => {
+    const handleUrlChange = () => {
+      setActiveScreen(getScreenFromUrl());
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
+
+  const handleNavigateScreen = (screen: AppScreen) => {
+    setActiveScreen(screen);
+    const targetPath = screen === 'autoatendimento' ? '/' : `/${screen}`;
+    const targetHash = screen === 'autoatendimento' ? '#/' : `#/${screen}`;
+
+    try {
+      window.history.pushState({}, '', targetPath);
+    } catch {
+      window.location.hash = targetHash;
+    }
+  };
 
   // Cart Totals calculation
   const cartTotal = useMemo(() => {
@@ -102,31 +153,32 @@ export default function App() {
     setCurrentStep('payment');
   };
 
-  // Step 5 -> Step 6 (Order Confirmed & Sent to KDS)
-  const handleConfirmPayment = (method: PaymentMethod, isPaidImmediately: boolean) => {
-    const orderNumber = getNextOrderNumber();
+  // Step 5 -> Step 6 (Order Confirmed & Sent to KDS & Database)
+  const handleConfirmPayment = async (
+    method: PaymentMethod,
+    isPaidImmediately: boolean,
+    customerName: string,
+    observations: string
+  ) => {
+    try {
+      const savedOrder = await createOrder({
+        customerName: customerName.trim(),
+        orderType: orderType || 'local',
+        tableNumber: orderType === 'local' ? tableNumber : undefined,
+        items: [...cartItems],
+        observations: observations.trim(),
+        subtotal: cartTotal,
+        total: cartTotal,
+        paymentMethod: method,
+        paymentStatus: isPaidImmediately ? 'pago' : 'pendente_balcao',
+      });
 
-    const newOrder: Order = {
-      id: `ord-${Date.now()}`,
-      orderNumber,
-      orderType: orderType || 'local',
-      tableNumber: orderType === 'local' ? tableNumber : undefined,
-      items: [...cartItems],
-      subtotal: cartTotal,
-      total: cartTotal,
-      paymentMethod: method,
-      paymentStatus: isPaidImmediately ? 'pago' : 'pendente_balcao',
-      status: 'recebido',
-      createdAt: Date.now(),
-      estimatedMinutes: 15,
-    };
-
-    // Push into KDS Kitchen System with sound
-    submitOrderToKds(newOrder);
-
-    setLastConfirmedOrder(newOrder);
-    setCartItems([]);
-    setCurrentStep('confirmation');
+      setLastConfirmedOrder(savedOrder);
+      setCartItems([]);
+      setCurrentStep('confirmation');
+    } catch (err) {
+      console.error('Erro ao processar pedido:', err);
+    }
   };
 
   // Reset to Step 1 Idle
@@ -140,24 +192,26 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-amber-500 selection:text-zinc-950">
-      {/* Top Header */}
-      <Header
-        currentStep={currentStep}
-        orderType={orderType}
-        tableNumber={tableNumber}
-        onReset={handleResetToIdle}
-        isKdsActive={isKdsViewActive}
-        onToggleKds={() => setIsKdsViewActive(!isKdsViewActive)}
-        cartCount={cartCount}
-        onOpenCart={() => setIsCartDrawerOpen(true)}
-      />
+      {/* 1. TV CALL PANEL SCREEN (fullscreen, no header) */}
+      {activeScreen === 'painel' ? (
+        <TvPanel onBackToKiosk={() => handleNavigateScreen('autoatendimento')} />
+      ) : activeScreen === 'cozinha' ? (
+        /* 2. KITCHEN KDS SCREEN (protected by password) */
+        <KdsView onBackToKiosk={() => handleNavigateScreen('autoatendimento')} />
+      ) : (
+        /* 3. AUTOATENDIMENTO (KIOSK) SCREEN */
+        <>
+          <Header
+            currentStep={currentStep}
+            orderType={orderType}
+            tableNumber={tableNumber}
+            onReset={handleResetToIdle}
+            activeScreen={activeScreen}
+            onNavigateScreen={handleNavigateScreen}
+            cartCount={cartCount}
+          />
 
-      {/* Main View Router */}
-      <main className="flex-1 flex flex-col">
-        {isKdsViewActive ? (
-          <KdsView onBackToKiosk={() => setIsKdsViewActive(false)} />
-        ) : (
-          <>
+          <main className="flex-1 flex flex-col">
             {/* Step 1: Idle Attract Screen */}
             {currentStep === 'idle' && <Step1Idle onStart={handleStartOrder} />}
 
@@ -180,7 +234,7 @@ export default function App() {
               />
             )}
 
-            {/* Step 5: Payment Screen */}
+            {/* Step 5: Customer Name, Observations & Payment Screen */}
             {currentStep === 'payment' && (
               <Step5Payment
                 orderType={orderType || 'local'}
@@ -192,7 +246,7 @@ export default function App() {
               />
             )}
 
-            {/* Step 6: Confirmation & Order Number */}
+            {/* Step 6: Confirmation & Order Number Announcement */}
             {currentStep === 'confirmation' && lastConfirmedOrder && (
               <Step6Confirmation
                 order={lastConfirmedOrder}
@@ -200,7 +254,7 @@ export default function App() {
               />
             )}
 
-            {/* Step 4 Cart Drawer modal */}
+            {/* Step 4: Cart Drawer modal */}
             <CartDrawer
               isOpen={isCartDrawerOpen}
               onClose={() => setIsCartDrawerOpen(false)}
@@ -210,9 +264,9 @@ export default function App() {
               onRemoveItem={handleRemoveItem}
               onProceedToPayment={handleProceedToPayment}
             />
-          </>
-        )}
-      </main>
+          </main>
+        </>
+      )}
     </div>
   );
 }

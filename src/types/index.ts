@@ -45,17 +45,21 @@ export type OrderStatus = 'recebido' | 'preparo' | 'pronto' | 'entregue';
 
 export interface Order {
   id: string;
-  orderNumber: string; // e.g. "A-042"
+  orderNumber: string; // e.g. "#001", "#002"
+  customerName: string; // Mandatory customer name
   orderType: OrderType;
   tableNumber?: string; // 01 to 10
   items: CartItem[];
+  observations?: string; // General order observations (e.g. "sem talher", "guardanapo extra")
   subtotal: number;
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: 'pago' | 'pendente_balcao';
   status: OrderStatus;
   createdAt: number;
-  estimatedMinutes: number;
+  formattedTime?: string; // e.g. "14:32"
+  estimatedMinutes?: number;
+  announcedAt?: number; // timestamp when called on TV panel
 }
 
 export type KioskStep = 
@@ -64,3 +68,5 @@ export type KioskStep =
   | 'menu'           // Step 3
   | 'payment'        // Step 5
   | 'confirmation';  // Step 6
+
+export type AppScreen = 'autoatendimento' | 'cozinha' | 'painel';

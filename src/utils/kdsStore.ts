@@ -1,13 +1,31 @@
 import { Order, OrderStatus } from '../types';
 import { playKitchenBell } from './sound';
 
-const STORAGE_KEY = 'mare_kds_orders_v1';
-const ORDER_COUNTER_KEY = 'mare_order_counter_v1';
+const STORAGE_KEY = 'mare_orders_v2';
+const BROADCAST_CHANNEL_NAME = 'mare_restaurant_channel';
 
+// BroadcastChannel for cross-tab multi-window instant communication
+let broadcastChannel: BroadcastChannel | null = null;
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  try {
+    broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+  } catch {
+    // Ignore
+  }
+}
+
+// In-memory cache
+let cachedOrders: Order[] = [];
+let isConnectedSSE = false;
+let eventSource: EventSource | null = null;
+const listeners: Set<(orders: Order[]) => void> = new Set();
+
+// Fallback initial seeds
 const INITIAL_SEEDED_ORDERS: Order[] = [
   {
     id: 'ord-seed-01',
-    orderNumber: 'A-038',
+    orderNumber: '#001',
+    customerName: 'Carlos Silva',
     orderType: 'local',
     tableNumber: '03',
     items: [
@@ -54,17 +72,20 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
         totalPrice: 24.90,
       },
     ],
+    observations: 'Sem guardanapos plásticos, por favor.',
     subtotal: 64.30,
     total: 64.30,
     paymentMethod: 'pix',
     paymentStatus: 'pago',
     status: 'preparo',
-    createdAt: Date.now() - 1000 * 60 * 7, // 7 min ago
+    createdAt: Date.now() - 1000 * 60 * 7,
+    formattedTime: '13:45',
     estimatedMinutes: 15,
   },
   {
     id: 'ord-seed-02',
-    orderNumber: 'A-040',
+    orderNumber: '#002',
+    customerName: 'Mariana Costa',
     orderType: 'viagem',
     items: [
       {
@@ -81,7 +102,7 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
           defaultIngredients: ['Pão australiano', 'Blend nobre 200g'],
           suggestedAddons: [],
         },
-        quantity: 2,
+        quantity: 1,
         customization: {
           meatDoneness: 'Bem passado',
           removedIngredients: [],
@@ -89,20 +110,23 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
           specialNotes: '',
         },
         unitPrice: 39.90,
-        totalPrice: 79.80,
+        totalPrice: 39.90,
       },
     ],
-    subtotal: 79.80,
-    total: 79.80,
+    observations: 'Embalar bem para viagem de moto.',
+    subtotal: 39.90,
+    total: 39.90,
     paymentMethod: 'cartao_balcao',
     paymentStatus: 'pago',
     status: 'recebido',
-    createdAt: Date.now() - 1000 * 60 * 2, // 2 min ago
+    createdAt: Date.now() - 1000 * 60 * 2,
+    formattedTime: '13:50',
     estimatedMinutes: 15,
   },
   {
     id: 'ord-seed-03',
-    orderNumber: 'A-035',
+    orderNumber: '#003',
+    customerName: 'Lucas Lima',
     orderType: 'local',
     tableNumber: '07',
     items: [
@@ -120,7 +144,7 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
           defaultIngredients: [],
           suggestedAddons: [],
         },
-        quantity: 1,
+        quantity: 2,
         customization: {
           meatDoneness: 'Ao ponto',
           removedIngredients: ['Picles artesanal'],
@@ -128,73 +152,254 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
           specialNotes: '',
         },
         unitPrice: 23.90,
-        totalPrice: 23.90,
+        totalPrice: 47.80,
       },
     ],
-    subtotal: 23.90,
-    total: 23.90,
+    observations: '',
+    subtotal: 47.80,
+    total: 47.80,
     paymentMethod: 'pix',
     paymentStatus: 'pago',
     status: 'pronto',
     createdAt: Date.now() - 1000 * 60 * 18,
+    formattedTime: '13:34',
     estimatedMinutes: 15,
   },
 ];
 
+// Helper to notify all internal listeners and persistent storage
+function notifyListeners(orders: Order[], isRemoteUpdate = false) {
+  cachedOrders = orders;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+    } catch {
+      // Ignore
+    }
+  }
+
+  for (const listener of listeners) {
+    try {
+      listener(orders);
+    } catch (e) {
+      console.error('Error in order listener:', e);
+    }
+  }
+
+  // Cross-tab broadcast
+  if (!isRemoteUpdate && broadcastChannel) {
+    try {
+      broadcastChannel.postMessage({ type: 'ORDERS_UPDATED', orders });
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+// Initialize SSE connection for Real-Time cross-device synchronization
+function initSSE() {
+  if (typeof window === 'undefined') return;
+  if (eventSource) return;
+
+  try {
+    eventSource = new EventSource('/api/orders/stream');
+
+    eventSource.onopen = () => {
+      isConnectedSSE = true;
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const orders = JSON.parse(event.data);
+        if (Array.isArray(orders)) {
+          // Check if a new order arrived to trigger short chime
+          if (cachedOrders.length > 0 && orders.length > cachedOrders.length) {
+            playKitchenBell();
+          }
+          notifyListeners(orders, true);
+        }
+      } catch (err) {
+        console.error('Error parsing SSE data:', err);
+      }
+    };
+
+    eventSource.onerror = () => {
+      isConnectedSSE = false;
+      // If server SSE fails or disconnects, retry in 5s
+      eventSource?.close();
+      eventSource = null;
+      setTimeout(initSSE, 5000);
+    };
+  } catch (err) {
+    console.error('Failed to init SSE:', err);
+  }
+}
+
+// Listen to local BroadcastChannel (instant multi-tab sync)
+if (broadcastChannel) {
+  broadcastChannel.onmessage = (event) => {
+    if (event.data?.type === 'ORDERS_UPDATED' && Array.isArray(event.data.orders)) {
+      cachedOrders = event.data.orders;
+      notifyListeners(event.data.orders, true);
+    }
+  };
+}
+
+// Initial cache load from localStorage or seeds
 export function getStoredOrders(): Order[] {
-  if (typeof window === 'undefined') return [];
+  if (cachedOrders.length > 0) return cachedOrders;
+  if (typeof window === 'undefined') return INITIAL_SEEDED_ORDERS;
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEEDED_ORDERS));
-      return INITIAL_SEEDED_ORDERS;
+    if (raw) {
+      cachedOrders = JSON.parse(raw);
+      return cachedOrders;
     }
-    return JSON.parse(raw);
   } catch {
-    return INITIAL_SEEDED_ORDERS;
+    // Ignore
   }
+
+  cachedOrders = INITIAL_SEEDED_ORDERS;
+  return cachedOrders;
 }
 
-export function saveOrders(orders: Order[]) {
-  if (typeof window === 'undefined') return;
+// Fetch orders from backend API
+export async function fetchOrdersFromApi(): Promise<Order[]> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-    window.dispatchEvent(new CustomEvent('mare_kds_update', { detail: orders }));
+    const res = await fetch('/api/orders');
+    if (res.ok) {
+      const orders = await res.json();
+      if (Array.isArray(orders)) {
+        notifyListeners(orders, true);
+        return orders;
+      }
+    }
+  } catch {
+    // If backend isn't ready or offline, return local cache
+  }
+  return getStoredOrders();
+}
+
+// Create new order (from Kiosk)
+export async function createOrder(orderPayload: {
+  customerName: string;
+  orderType: 'local' | 'viagem';
+  tableNumber?: string;
+  items: any[];
+  observations?: string;
+  subtotal: number;
+  total: number;
+  paymentMethod: 'pix' | 'cartao_balcao' | 'dinheiro_balcao';
+  paymentStatus: 'pago' | 'pendente_balcao';
+}): Promise<Order> {
+  try {
+    // Try sending to Express backend
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderPayload),
+    });
+
+    if (res.ok) {
+      const newOrder: Order = await res.json();
+      return newOrder;
+    }
   } catch (err) {
-    console.error('Failed to save orders to localStorage', err);
+    console.warn('Backend POST /api/orders failed, using local offline fallback:', err);
   }
+
+  // Offline fallback
+  const current = getStoredOrders();
+  const nextNum = current.length + 1;
+  const numStr = String(nextNum).padStart(3, '0');
+  const now = new Date();
+
+  const fallbackOrder: Order = {
+    id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    orderNumber: `#${numStr}`,
+    customerName: orderPayload.customerName.trim(),
+    orderType: orderPayload.orderType,
+    tableNumber: orderPayload.tableNumber,
+    items: orderPayload.items,
+    observations: orderPayload.observations || '',
+    subtotal: orderPayload.subtotal,
+    total: orderPayload.total,
+    paymentMethod: orderPayload.paymentMethod,
+    paymentStatus: orderPayload.paymentStatus,
+    status: 'recebido',
+    createdAt: Date.now(),
+    formattedTime: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    estimatedMinutes: 15,
+  };
+
+  const updated = [fallbackOrder, ...current];
+  notifyListeners(updated, false);
+  return fallbackOrder;
 }
 
-export function getNextOrderNumber(): string {
-  if (typeof window === 'undefined') return 'A-042';
+// Update order status (from Kitchen)
+export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus): Promise<void> {
   try {
-    const raw = localStorage.getItem(ORDER_COUNTER_KEY);
-    let count = raw ? parseInt(raw, 10) : 41;
-    count += 1;
-    localStorage.setItem(ORDER_COUNTER_KEY, count.toString());
-    const formatted = count < 100 ? `0${count}` : `${count}`;
-    return `A-${formatted}`;
+    // Try sending to Express backend
+    const res = await fetch(`/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+
+    if (res.ok) {
+      return;
+    }
+  } catch (err) {
+    console.warn('Backend PATCH failed, updating local state:', err);
+  }
+
+  // Offline fallback
+  const current = getStoredOrders();
+  const updated = current.map((ord) => {
+    if (ord.id === orderId) {
+      return {
+        ...ord,
+        status: nextStatus,
+        announcedAt: nextStatus === 'pronto' ? Date.now() : ord.announcedAt,
+      };
+    }
+    return ord;
+  });
+  notifyListeners(updated, false);
+}
+
+// Admin login verification
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/admin/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return !!data.success;
+    }
+    return false;
   } catch {
-    return 'A-042';
+    // Offline fallback for admin password check
+    return password === 'MARE123';
   }
 }
 
-export function submitOrderToKds(order: Order): Order {
-  const current = getStoredOrders();
-  const updated = [order, ...current];
-  saveOrders(updated);
-  playKitchenBell();
-  return order;
-}
+// Subscribe to real-time order updates
+export function subscribeToOrders(callback: (orders: Order[]) => void): () => void {
+  listeners.add(callback);
+  // Send current cached orders immediately
+  callback(getStoredOrders());
 
-export function updateOrderStatus(orderId: string, nextStatus: OrderStatus) {
-  const current = getStoredOrders();
-  const updated = current.map((ord) => (ord.id === orderId ? { ...ord, status: nextStatus } : ord));
-  saveOrders(updated);
-}
+  // Ensure SSE is active
+  initSSE();
 
-export function clearFinishedOrders() {
-  const current = getStoredOrders();
-  const updated = current.filter((ord) => ord.status !== 'entregue');
-  saveOrders(updated);
+  return () => {
+    listeners.delete(callback);
+  };
 }

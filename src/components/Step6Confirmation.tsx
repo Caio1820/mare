@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { CheckCircle2, Clock, ChefHat, Receipt, ArrowRight, BellRing } from 'lucide-react';
+import { CheckCircle2, Clock, ChefHat, Receipt, ArrowRight, Tv, User } from 'lucide-react';
 import { Order } from '../types';
 import { ReceiptModal } from './ReceiptModal';
 import { playTouchSound } from '../utils/sound';
@@ -21,9 +21,9 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
   useEffect(() => {
     try {
       confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
+        particleCount: 90,
+        spread: 80,
+        origin: { y: 0.55 },
         colors: ['#F59E0B', '#EF4444', '#10B981', '#FFFFFF'],
       });
     } catch {
@@ -48,9 +48,9 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
   const progressPercentage = ((10 - secondsRemaining) / 10) * 100;
 
   return (
-    <div className="min-h-[calc(100vh-65px)] bg-zinc-950 p-6 sm:p-12 max-w-4xl mx-auto w-full flex flex-col justify-between items-center text-center">
+    <div className="min-h-[calc(100vh-65px)] bg-zinc-950 p-6 sm:p-10 max-w-4xl mx-auto w-full flex flex-col justify-between items-center text-center">
       {/* Top Success Badge */}
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-3 max-w-2xl">
         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 shadow-2xl shadow-emerald-500/10 animate-bounce">
           <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 stroke-[2.5]" />
         </div>
@@ -60,59 +60,47 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
             Pedido Confirmado com Sucesso!
           </span>
           <h2 className="font-display text-3xl sm:text-5xl font-black uppercase text-zinc-100 mt-1">
-            Pedido nº <span className="text-amber-400">#{order.orderNumber}</span> enviado para a cozinha!
+            Pedido <span className="text-amber-400">{order.orderNumber}</span> enviado para a cozinha!
           </h2>
-          <p className="mt-2 text-zinc-400 text-sm sm:text-base">
-            Seus hambúrgueres já estão sendo preparados com carinho e fogo na chapa.
-          </p>
+          <div className="mt-2 inline-flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-4 py-1.5 rounded-full text-zinc-200 text-sm font-semibold">
+            <User className="w-4 h-4 text-amber-400" />
+            <span>Cliente: <strong className="text-white">{order.customerName}</strong></span>
+          </div>
         </div>
       </div>
 
-      {/* Giant Ticket Card */}
-      <div className="my-8 w-full max-w-lg bg-zinc-900 border-2 border-amber-500/60 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        {/* Glow corner */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="flex items-center justify-center gap-2 text-zinc-400 text-xs uppercase font-bold tracking-widest mb-1">
-          <BellRing className="w-4 h-4 text-amber-500 animate-pulse" />
-          <span>Sua Senha de Chamada</span>
+      {/* Main Attention Callout Box: Exact requested message */}
+      <div className="my-6 w-full max-w-xl bg-gradient-to-r from-amber-500/15 via-zinc-900 to-amber-500/15 border-2 border-amber-500/70 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        <div className="flex items-center justify-center gap-2 text-amber-400 text-xs uppercase font-bold tracking-widest mb-2">
+          <Tv className="w-5 h-5 animate-pulse" />
+          <span>Fique Atento ao Painel de TV</span>
         </div>
 
-        {/* Big Password */}
-        <div className="font-display text-7xl sm:text-8xl font-black text-amber-400 tracking-widest py-2 select-all drop-shadow-md">
+        {/* Big Order Number */}
+        <div className="font-display text-7xl sm:text-8xl font-black text-amber-400 tracking-widest py-1 select-all drop-shadow-md">
           {order.orderNumber}
         </div>
 
-        <div className="mt-2 inline-flex items-center gap-2 bg-zinc-950 px-4 py-2 rounded-full border border-zinc-800 text-xs sm:text-sm font-semibold text-zinc-300">
-          <ChefHat className="w-4 h-4 text-amber-500" />
-          <span>
-            {order.orderType === 'local'
-              ? `Mesa ${order.tableNumber || '01'} · Salão Maré`
-              : 'Embalagem Especial para Viagem'}
-          </span>
+        {/* Big Customer Name */}
+        <div className="font-display text-2xl sm:text-3xl font-bold uppercase text-zinc-100 tracking-wide">
+          {order.customerName}
         </div>
 
-        <div className="mt-6 pt-6 border-t border-zinc-800/80 flex items-center justify-around text-left">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-zinc-500 block">Tempo Estimado</span>
-            <div className="flex items-center gap-1.5 text-zinc-200 font-bold text-sm sm:text-base mt-0.5">
-              <Clock className="w-4 h-4 text-amber-400" />
-              <span>12 a 18 minutos</span>
-            </div>
-          </div>
+        {/* Required Message Banner */}
+        <div className="mt-5 p-4 rounded-2xl bg-zinc-950/80 border border-amber-500/30 text-amber-300 font-semibold text-base sm:text-lg leading-snug">
+          "Acompanhe o painel, vamos chamar você quando estiver pronto."
+        </div>
 
-          <div className="h-8 w-px bg-zinc-800" />
-
-          <div>
-            <span className="text-[10px] uppercase font-bold text-zinc-500 block">Pagamento</span>
-            <span className="text-zinc-200 font-bold text-sm sm:text-base mt-0.5 block">
-              {order.paymentMethod === 'pix'
-                ? 'Pix Aprovado'
-                : order.paymentMethod === 'cartao_balcao'
-                ? 'Pagar no Balcão'
-                : 'Dinheiro Balcão'}
-            </span>
-          </div>
+        <div className="mt-5 flex items-center justify-center gap-4 text-xs sm:text-sm text-zinc-400">
+          <span className="flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-amber-400" />
+            Preparo ~15 min
+          </span>
+          <span>·</span>
+          <span className="flex items-center gap-1.5">
+            <ChefHat className="w-4 h-4 text-amber-400" />
+            {order.orderType === 'local' ? `Mesa ${order.tableNumber || '01'}` : 'Para Viagem'}
+          </span>
         </div>
 
         {/* Receipt trigger */}
@@ -125,7 +113,7 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
             className="w-full py-3 px-4 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold border border-zinc-700 flex items-center justify-center gap-2 transition-all active:scale-95"
           >
             <Receipt className="w-4 h-4 text-amber-400" />
-            <span>Visualizar / Imprimir Comprovante Fiscal</span>
+            <span>Visualizar / Imprimir Comprovante</span>
           </button>
         </div>
       </div>
