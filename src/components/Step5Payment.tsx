@@ -90,47 +90,47 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
   ];
 
   return (
-    <div className="min-h-[calc(100vh-65px)] bg-zinc-950 p-4 sm:p-8 max-w-6xl mx-auto w-full flex flex-col justify-between">
+    <div className="min-h-[calc(100dvh-54px)] sm:min-h-[calc(100vh-65px)] bg-zinc-950 p-3 sm:p-6 md:p-8 max-w-6xl mx-auto w-full flex flex-col justify-between pb-safe overflow-y-auto">
       {/* Top Bar */}
-      <div className="flex items-center justify-between pb-6 border-b border-zinc-800/80">
+      <div className="flex items-center justify-between pb-4 sm:pb-6 border-b border-zinc-800/80">
         <button
           onClick={() => {
             playTouchSound(480);
             onBack();
           }}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 font-semibold text-sm hover:bg-zinc-800 hover:text-white active:scale-95 transition-all min-h-[48px]"
+          className="flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 font-semibold text-xs sm:text-sm hover:bg-zinc-800 hover:text-white active:scale-95 transition-all min-h-[44px]"
         >
-          <ArrowLeft className="w-5 h-5 text-amber-500" />
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
           <span>Voltar ao Cardápio</span>
         </button>
 
-        <div className="text-zinc-500 text-xs sm:text-sm font-semibold uppercase tracking-widest">
-          Etapa 3 de 4 · Identificação & Pagamento
+        <div className="text-zinc-500 text-[10px] sm:text-xs font-semibold uppercase tracking-widest">
+          Etapa 3 de 4 · Pagamento
         </div>
       </div>
 
       {/* Main Grid: Left = Identification & Summary, Right = Payment Methods */}
-      <div className="my-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="my-4 sm:my-6 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-start">
         {/* Left Column (5 cols): Customer Identification & Order Summary */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-4 sm:space-y-6">
           {/* Customer Name Input (MANDATORY REQUIREMENT) */}
-          <div className="bg-zinc-900/90 border-2 border-amber-500/50 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                <User className="w-5 h-5" />
+          <div className="bg-zinc-900/90 border-2 border-amber-500/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3 sm:space-y-4">
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                <User className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h3 className="font-display text-xl font-bold uppercase text-zinc-100">
+                <h3 className="font-display text-lg sm:text-xl font-bold uppercase text-zinc-100">
                   Identificação do Cliente <span className="text-amber-400">*</span>
                 </h3>
-                <p className="text-xs text-zinc-400">
+                <p className="text-[11px] sm:text-xs text-zinc-400">
                   Seu nome aparecerá na tela do Painel de TV
                 </p>
               </div>
             </div>
 
             <div>
-              <label className="text-xs uppercase font-bold text-zinc-400 block mb-1.5">
+              <label className="text-[11px] sm:text-xs uppercase font-bold text-zinc-400 block mb-1">
                 Digite seu Nome Completo ou Primeiro Nome:
               </label>
               <input
@@ -141,7 +141,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                   if (nameError) setNameError('');
                 }}
                 placeholder="Ex: João Silva"
-                className={`w-full bg-zinc-950 border rounded-2xl px-4 py-3.5 text-base sm:text-lg text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-semibold ${
+                className={`w-full bg-zinc-950 border rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-3 sm:py-3.5 text-base text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-semibold ${
                   nameError
                     ? 'border-red-500 ring-2 ring-red-500/20'
                     : 'border-zinc-700 focus:border-amber-400'

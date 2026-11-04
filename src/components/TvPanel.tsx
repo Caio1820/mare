@@ -89,28 +89,28 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
   const prontoOrders = orders.filter((o) => o.status === 'pronto');
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-between overflow-hidden select-none">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-between overflow-y-auto sm:overflow-hidden select-none pb-safe">
       {/* Top Header of TV Panel */}
-      <header className="bg-zinc-900/90 border-b border-zinc-800 px-6 sm:px-12 py-4 flex items-center justify-between gap-4">
+      <header className="bg-zinc-900/90 border-b border-zinc-800 px-3 sm:px-12 py-2.5 sm:py-4 flex items-center justify-between gap-2 sm:gap-4 shrink-0">
         {/* Brand Lockup */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-4">
           <button
             onClick={onBackToKiosk}
             title="Voltar ao Totem"
-            className="w-10 h-10 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors shrink-0"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-zinc-950 font-black text-2xl shadow-lg shadow-amber-500/20">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-zinc-950 font-black text-lg sm:text-2xl shadow-lg shadow-amber-500/20 shrink-0">
               M
             </div>
             <div>
-              <span className="font-display text-2xl sm:text-3xl font-extrabold uppercase tracking-wider text-zinc-100 block leading-none">
+              <span className="font-display text-lg sm:text-3xl font-extrabold uppercase tracking-wider text-zinc-100 block leading-tight">
                 Maré <span className="text-amber-500">·</span> Hambúrgueria
               </span>
-              <span className="text-zinc-500 text-xs font-semibold uppercase tracking-widest block mt-0.5">
+              <span className="text-zinc-500 text-[10px] sm:text-xs font-semibold uppercase tracking-widest block">
                 Painel Oficial de Chamada
               </span>
             </div>
@@ -118,11 +118,11 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
         </div>
 
         {/* Center/Right: Digital Clock and Audio Unlock Button */}
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-2.5 sm:gap-6">
           {/* Discreet Audio Activator button (browser policy requirement) */}
           <button
             onClick={handleEnableAudio}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 transition-all ${
+            className={`px-2.5 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold border flex items-center gap-1.5 transition-all shrink-0 ${
               isAudioEnabled
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                 : 'bg-amber-500 text-zinc-950 border-amber-400 animate-pulse font-bold'
@@ -132,22 +132,22 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
             {isAudioEnabled ? (
               <>
                 <Volume2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Som da TV Ativado</span>
+                <span className="hidden sm:inline">Som Ativado</span>
               </>
             ) : (
               <>
                 <VolumeX className="w-3.5 h-3.5" />
-                <span>Ativar Som da TV 🔊</span>
+                <span>Ativar Som 🔊</span>
               </>
             )}
           </button>
 
           {/* Clock */}
-          <div className="text-right">
-            <span className="font-mono text-xl sm:text-2xl font-black text-amber-400 block leading-tight">
+          <div className="text-right shrink-0">
+            <span className="font-mono text-base sm:text-2xl font-black text-amber-400 block leading-tight">
               {currentTime}
             </span>
-            <span className="text-[11px] text-zinc-400 capitalize hidden sm:block">
+            <span className="text-[10px] sm:text-[11px] text-zinc-400 capitalize hidden sm:block">
               {currentDate}
             </span>
           </div>
@@ -155,9 +155,9 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
       </header>
 
       {/* Main 2 Areas: PREPARANDO (Left) & PRONTO (Right) */}
-      <main className="flex-1 p-6 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch overflow-hidden">
+      <main className="flex-1 p-3 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-stretch overflow-y-auto">
         {/* LEFT AREA: PREPARANDO (40% width) */}
-        <section className="lg:col-span-5 bg-zinc-900/60 border-2 border-zinc-800 rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-xl">
+        <section className="lg:col-span-5 bg-zinc-900/60 border-2 border-zinc-800 rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex flex-col justify-between shadow-xl">
           <div>
             <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
               <div className="flex items-center gap-3">
@@ -292,31 +292,31 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
 
       {/* FULLSCREEN POPUP CALL BANNER (WHEN KITCHEN MARKS "PEDIDO PRONTO") */}
       {currentAnnouncement && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-full max-w-4xl bg-gradient-to-b from-zinc-900 to-zinc-950 border-4 border-amber-500 rounded-3xl p-8 sm:p-14 text-center shadow-2xl relative overflow-hidden animate-pulse">
-            <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-display font-extrabold text-base sm:text-lg uppercase tracking-wider mb-4">
-              <CheckCircle2 className="w-6 h-6 stroke-[3]" />
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-4xl bg-gradient-to-b from-zinc-900 to-zinc-950 border-2 sm:border-4 border-amber-500 rounded-2xl sm:rounded-3xl p-5 sm:p-14 text-center shadow-2xl relative overflow-hidden animate-pulse">
+            <div className="inline-flex items-center gap-2 sm:gap-3 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-display font-extrabold text-xs sm:text-lg uppercase tracking-wider mb-2 sm:mb-4">
+              <CheckCircle2 className="w-4 h-4 sm:w-6 sm:h-6 stroke-[3]" />
               <span>Chamada de Pedido Pronto</span>
             </div>
 
             {/* Giant Order Number */}
-            <div className="font-display text-8xl sm:text-9xl font-black text-amber-400 tracking-widest my-2 drop-shadow-2xl">
+            <div className="font-display text-6xl sm:text-9xl font-black text-amber-400 tracking-widest my-1 sm:my-2 drop-shadow-2xl">
               {currentAnnouncement.orderNumber}
             </div>
 
             {/* Exact requested text format */}
-            <h1 className="font-display text-4xl sm:text-6xl font-black uppercase text-white tracking-wide mt-2">
+            <h1 className="font-display text-2xl sm:text-5xl lg:text-6xl font-black uppercase text-white tracking-wide mt-1 sm:mt-2 leading-tight">
               PEDIDO {currentAnnouncement.orderNumber} – {currentAnnouncement.customerName}, SEU PEDIDO ESTÁ PRONTO!
             </h1>
 
-            <p className="mt-6 text-lg sm:text-2xl text-zinc-300 font-semibold max-w-2xl mx-auto">
+            <p className="mt-3 sm:mt-6 text-sm sm:text-2xl text-zinc-300 font-semibold max-w-2xl mx-auto">
               Por favor, dirija-se ao balcão de retirada com o seu comprovante.
             </p>
 
-            <div className="mt-8">
+            <div className="mt-5 sm:mt-8">
               <button
                 onClick={() => setCurrentAnnouncement(null)}
-                className="px-8 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-sm uppercase tracking-wider"
+                className="px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs sm:text-sm uppercase tracking-wider active:scale-95 transition-all"
               >
                 Dispensar Aviso
               </button>

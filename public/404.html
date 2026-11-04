@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maré | Hambúrgueria</title>
+    <script>
+      // Fallback SPA router redirect for static hosts like Vercel / GitHub Pages
+      (function() {
+        var pathname = window.location.pathname || '';
+        var search = window.location.search || '';
+        var hash = window.location.hash || '';
+        
+        // Clean route target
+        var target = pathname;
+        if (target.startsWith('/')) {
+          target = target.substring(1);
+        }
+        
+        if (target) {
+          window.location.replace('/#/' + target + search + hash);
+        } else {
+          window.location.replace('/' + search + hash);
+        }
+      })();
+    </script>
+  </head>
+  <body style="background-color: #09090b; color: #f4f4f5; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+    <div style="text-align: center;">
+      <p style="font-size: 1.125rem; font-weight: 600; color: #f59e0b;">Carregando Maré Hambúrgueria...</p>
+    </div>
+  </body>
+</html>

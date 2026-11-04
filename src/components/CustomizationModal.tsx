@@ -70,10 +70,10 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-zinc-900 border border-zinc-700/80 rounded-3xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl relative animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 overflow-y-auto">
+      <div className="bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[90dvh] sm:max-h-[92vh] flex flex-col shadow-2xl relative animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 overflow-hidden">
         {/* Header with image preview */}
-        <div className="relative h-44 sm:h-52 w-full bg-zinc-950 shrink-0 overflow-hidden border-b border-zinc-800">
+        <div className="relative h-32 sm:h-52 w-full bg-zinc-950 shrink-0 overflow-hidden border-b border-zinc-800">
           <img
             src={product.image}
             alt={product.name}
@@ -88,7 +88,7 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
             }}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/50 to-transparent" />
 
           {/* Close button */}
           <button
@@ -96,20 +96,20 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
               playTouchSound(400);
               onClose();
             }}
-            className="absolute top-4 right-4 w-11 h-11 rounded-full bg-zinc-950/80 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center border border-zinc-700 shadow-lg active:scale-90"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-zinc-950/80 hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center border border-zinc-700 shadow-lg active:scale-90"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           {/* Product Title inside Header */}
-          <div className="absolute bottom-4 left-6 right-6">
-            <span className="text-xs uppercase font-bold text-amber-400 tracking-wider block">
+          <div className="absolute bottom-2.5 sm:bottom-4 left-4 sm:left-6 right-4 sm:right-6">
+            <span className="text-[10px] sm:text-xs uppercase font-bold text-amber-400 tracking-wider block">
               {product.categoryLabel}
             </span>
-            <h3 className="font-display text-2xl sm:text-3xl font-bold text-zinc-100 uppercase drop-shadow">
+            <h3 className="font-display text-xl sm:text-3xl font-bold text-zinc-100 uppercase drop-shadow line-clamp-1">
               {product.name}
             </h3>
-            <span className="font-mono text-base font-bold text-amber-400">
+            <span className="font-mono text-sm sm:text-base font-bold text-amber-400">
               R$ {product.price.toFixed(2).replace('.', ',')}
             </span>
           </div>
@@ -314,9 +314,9 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
         </div>
 
         {/* Footer sticky bar with Quantity and Grand Total CTA */}
-        <div className="p-4 sm:p-6 bg-zinc-950 border-t border-zinc-800 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 shrink-0">
+        <div className="p-3 sm:p-6 pb-safe bg-zinc-950 border-t border-zinc-800 flex items-center justify-between gap-2.5 sm:gap-4 shrink-0">
           {/* Quantity Stepper */}
-          <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl">
+          <div className="flex items-center gap-1 sm:gap-2 bg-zinc-900 border border-zinc-800 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -324,11 +324,11 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
                 setQuantity((q) => Math.max(1, q - 1));
               }}
               disabled={quantity <= 1}
-              className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-200 flex items-center justify-center font-bold text-xl active:scale-90"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-200 flex items-center justify-center font-bold text-lg sm:text-xl active:scale-90"
             >
-              <Minus className="w-5 h-5" />
+              <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-            <span className="font-mono text-xl font-bold text-zinc-100 w-10 text-center">
+            <span className="font-mono text-base sm:text-xl font-bold text-zinc-100 w-7 sm:w-10 text-center">
               {quantity}
             </span>
             <button
@@ -337,9 +337,9 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
                 playTouchSound(560);
                 setQuantity((q) => q + 1);
               }}
-              className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center font-bold text-xl active:scale-90"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center font-bold text-lg sm:text-xl active:scale-90"
             >
-              <Plus className="w-5 h-5 text-amber-400" />
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
             </button>
           </div>
 
@@ -347,10 +347,10 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
           <button
             type="button"
             onClick={handleConfirm}
-            className="flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-base sm:text-lg uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 flex items-center justify-between min-h-[56px] transition-all"
+            className="flex-1 py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-xs sm:text-lg uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 flex items-center justify-between min-h-[48px] sm:min-h-[56px] transition-all"
           >
-            <span>Adicionar ao Pedido</span>
-            <span className="font-mono text-lg font-black bg-zinc-950/20 px-3 py-1 rounded-lg">
+            <span>Adicionar</span>
+            <span className="font-mono text-xs sm:text-lg font-black bg-zinc-950/20 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg">
               R$ {grandTotal.toFixed(2).replace('.', ',')}
             </span>
           </button>

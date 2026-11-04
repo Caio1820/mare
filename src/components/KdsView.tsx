@@ -37,6 +37,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [now, setNow] = useState<number>(Date.now());
+  const [mobileTab, setMobileTab] = useState<'recebido' | 'preparo' | 'pronto'>('recebido');
 
   // Listen for real-time orders when authenticated
   useEffect(() => {
@@ -270,25 +271,83 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
         </div>
       </header>
 
-      {/* Main 3 Columns: "Recebido", "Em preparo", "Pronto" */}
-      <div className="flex-1 p-4 sm:p-6 overflow-x-auto">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 min-w-[850px] items-start">
+      {/* Mobile Column Tab Switcher (visible only on small screens) */}
+      <div className="md:hidden bg-zinc-900/95 backdrop-blur-md border-b border-zinc-800 p-2 flex items-center gap-1.5 sticky top-[60px] z-10">
+        <button
+          onClick={() => {
+            playTouchSound(520);
+            setMobileTab('recebido');
+          }}
+          className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[42px] ${
+            mobileTab === 'recebido'
+              ? 'bg-amber-500 text-zinc-950 shadow-md'
+              : 'bg-zinc-800 text-zinc-400'
+          }`}
+        >
+          <span>1. Recebido</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
+            {recebidos.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            playTouchSound(520);
+            setMobileTab('preparo');
+          }}
+          className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[42px] ${
+            mobileTab === 'preparo'
+              ? 'bg-orange-500 text-zinc-950 shadow-md'
+              : 'bg-zinc-800 text-zinc-400'
+          }`}
+        >
+          <span>2. Preparo</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
+            {preparo.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            playTouchSound(520);
+            setMobileTab('pronto');
+          }}
+          className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[42px] ${
+            mobileTab === 'pronto'
+              ? 'bg-emerald-500 text-zinc-950 shadow-md'
+              : 'bg-zinc-800 text-zinc-400'
+          }`}
+        >
+          <span>3. Pronto</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
+            {pronto.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Main Production Columns (Tabs on Mobile, 3-column Grid on Desktop) */}
+      <div className="flex-1 p-3 sm:p-6 pb-safe">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-start">
           {/* COLUMN 1: RECEBIDO */}
-          <div className="bg-zinc-900/70 border border-zinc-800 rounded-3xl p-4 flex flex-col gap-4">
+          <div
+            className={`bg-zinc-900/70 border border-zinc-800 rounded-2xl sm:rounded-3xl p-3 sm:p-4 flex flex-col gap-3 sm:gap-4 ${
+              mobileTab === 'recebido' ? 'flex' : 'hidden md:flex'
+            }`}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse" />
-                <h3 className="font-display text-lg font-bold uppercase tracking-wide text-zinc-100">
+                <h3 className="font-display text-base sm:text-lg font-bold uppercase tracking-wide text-zinc-100">
                   1. Recebido
                 </h3>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold font-mono">
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold font-mono">
                 {recebidos.length}
               </span>
             </div>
 
             {/* List */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {recebidos.length === 0 ? (
                 <div className="py-12 text-center text-zinc-600 text-xs">
                   Nenhum pedido aguardando início
@@ -302,7 +361,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
                     actionButton={
                       <button
                         onClick={() => handleStatusChange(order.id, 'preparo')}
-                        className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-display font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-amber-500/10 min-h-[48px]"
+                        className="w-full py-3 sm:py-3.5 px-4 rounded-xl sm:rounded-2xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-display font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-amber-500/10 min-h-[44px] sm:min-h-[48px]"
                       >
                         <Flame className="w-4 h-4 fill-current" />
                         <span>Iniciar Preparo</span>
@@ -315,21 +374,25 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
           </div>
 
           {/* COLUMN 2: EM PREPARO */}
-          <div className="bg-zinc-900/70 border border-zinc-800 rounded-3xl p-4 flex flex-col gap-4">
+          <div
+            className={`bg-zinc-900/70 border border-zinc-800 rounded-2xl sm:rounded-3xl p-3 sm:p-4 flex flex-col gap-3 sm:gap-4 ${
+              mobileTab === 'preparo' ? 'flex' : 'hidden md:flex'
+            }`}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-orange-500 animate-bounce" />
-                <h3 className="font-display text-lg font-bold uppercase tracking-wide text-zinc-100">
+                <h3 className="font-display text-base sm:text-lg font-bold uppercase tracking-wide text-zinc-100">
                   2. Em Preparo
                 </h3>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold font-mono">
+              <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold font-mono">
                 {preparo.length}
               </span>
             </div>
 
             {/* List */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {preparo.length === 0 ? (
                 <div className="py-12 text-center text-zinc-600 text-xs">
                   Nenhum pedido na chapa no momento
@@ -344,7 +407,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
                     actionButton={
                       <button
                         onClick={() => handleStatusChange(order.id, 'pronto')}
-                        className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-display font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-emerald-500/10 min-h-[48px]"
+                        className="w-full py-3 sm:py-3.5 px-4 rounded-xl sm:rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-display font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-emerald-500/10 min-h-[44px] sm:min-h-[48px]"
                       >
                         <CheckCircle2 className="w-4 h-4 stroke-[3]" />
                         <span>Pedido Pronto</span>
@@ -357,21 +420,25 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
           </div>
 
           {/* COLUMN 3: PRONTO */}
-          <div className="bg-zinc-900/70 border border-zinc-800 rounded-3xl p-4 flex flex-col gap-4">
+          <div
+            className={`bg-zinc-900/70 border border-zinc-800 rounded-2xl sm:rounded-3xl p-3 sm:p-4 flex flex-col gap-3 sm:gap-4 ${
+              mobileTab === 'pronto' ? 'flex' : 'hidden md:flex'
+            }`}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <h3 className="font-display text-lg font-bold uppercase tracking-wide text-zinc-100">
-                  3. Pronto (No Painel TV)
+                <h3 className="font-display text-base sm:text-lg font-bold uppercase tracking-wide text-zinc-100">
+                  3. Pronto (Na TV)
                 </h3>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold font-mono">
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold font-mono">
                 {pronto.length}
               </span>
             </div>
 
             {/* List */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {pronto.length === 0 ? (
                 <div className="py-12 text-center text-zinc-600 text-xs">
                   Nenhum pedido aguardando retirada
@@ -386,7 +453,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
                     actionButton={
                       <button
                         onClick={() => handleStatusChange(order.id, 'entregue')}
-                        className="w-full py-3.5 px-4 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-display font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all min-h-[48px] border border-zinc-700"
+                        className="w-full py-3 sm:py-3.5 px-4 rounded-xl sm:rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-display font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all min-h-[44px] sm:min-h-[48px] border border-zinc-700"
                       >
                         <Sparkles className="w-4 h-4 text-amber-400" />
                         <span>Entregue (Remover)</span>

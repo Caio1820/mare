@@ -198,30 +198,30 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         </div>
 
         {/* Footer with Subtotal & Proceed to Payment CTA */}
-        <div className="p-6 bg-zinc-950 border-t border-zinc-800 space-y-4">
-          <div className="flex items-center justify-between text-zinc-400 text-sm">
+        <div className="p-4 sm:p-6 pb-safe bg-zinc-950 border-t border-zinc-800 space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-between text-zinc-400 text-xs sm:text-sm">
             <span>Subtotal do Pedido</span>
-            <span className="font-mono text-base text-zinc-200">
+            <span className="font-mono text-sm sm:text-base text-zinc-200">
               R$ {cartTotal.toFixed(2).replace('.', ',')}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-zinc-100">
-            <span className="font-display text-xl uppercase font-bold">Total a Pagar</span>
-            <span className="font-mono text-3xl font-black text-amber-400 tabular-nums">
+            <span className="font-display text-lg sm:text-xl uppercase font-bold">Total a Pagar</span>
+            <span className="font-mono text-2xl sm:text-3xl font-black text-amber-400 tabular-nums">
               R$ {cartTotal.toFixed(2).replace('.', ',')}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-1 sm:pt-2">
             <button
               onClick={() => {
                 playTouchSound(420);
                 onClose();
               }}
-              className="py-4 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold text-sm border border-zinc-800 active:scale-95 transition-all text-center min-h-[52px]"
+              className="py-3 sm:py-4 px-2 sm:px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold text-xs sm:text-sm border border-zinc-800 active:scale-95 transition-all text-center min-h-[46px] sm:min-h-[52px]"
             >
-              Continuar Pedindo
+              Continuar
             </button>
 
             <button
@@ -231,10 +231,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 onClose();
                 onProceedToPayment();
               }}
-              className="py-4 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 text-zinc-950 font-display font-extrabold text-base uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 min-h-[52px]"
+              className="py-3 sm:py-4 px-2 sm:px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 text-zinc-950 font-display font-extrabold text-xs sm:text-base uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 sm:gap-2 min-h-[46px] sm:min-h-[52px]"
             >
-              <span>Ir para Pagamento</span>
-              <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+              <span>Pagamento</span>
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </button>
           </div>
         </div>

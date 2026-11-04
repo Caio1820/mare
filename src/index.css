@@ -7,7 +7,16 @@
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     -webkit-user-select: none;
+    overflow-x: hidden;
   }
+}
+
+/* Safe area padding utilities for mobile */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 16px);
 }
 
 .font-display {

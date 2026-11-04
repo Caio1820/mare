@@ -60,13 +60,11 @@ export default function App() {
 
   const handleNavigateScreen = (screen: AppScreen) => {
     setActiveScreen(screen);
-    const targetPath = screen === 'autoatendimento' ? '/' : `/${screen}`;
     const targetHash = screen === 'autoatendimento' ? '#/' : `#/${screen}`;
-
     try {
-      window.history.pushState({}, '', targetPath);
-    } catch {
       window.location.hash = targetHash;
+    } catch {
+      // ignore
     }
   };
 
