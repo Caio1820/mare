@@ -12,6 +12,8 @@ import {
   User,
   MessageSquare,
   Sparkles,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { subscribeToOrders, updateOrderStatus, verifyAdminPassword } from '../utils/kdsStore';
@@ -54,9 +56,12 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
     };
   }, [isAuthenticated]);
 
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passwordInput.trim()) {
+    const clean = passwordInput.trim();
+    if (!clean) {
       setLoginError('Digite a senha de administrador.');
       return;
     }
@@ -65,7 +70,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
     setLoginError('');
 
     try {
-      const isValid = await verifyAdminPassword(passwordInput);
+      const isValid = await verifyAdminPassword(clean);
       if (isValid) {
         playKitchenBell();
         sessionStorage.setItem(AUTH_STORAGE_KEY, 'true');
@@ -136,21 +141,35 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
               <label className="text-xs uppercase font-bold text-zinc-400 block mb-1.5">
                 Senha de Administrador:
               </label>
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => {
-                  setPasswordInput(e.target.value);
-                  if (loginError) setLoginError('');
-                }}
-                placeholder="Digite a senha..."
-                autoFocus
-                className={`w-full bg-zinc-950 border rounded-2xl px-4 py-3.5 text-lg text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-mono tracking-widest ${
-                  loginError
-                    ? 'border-red-500 ring-2 ring-red-500/20'
-                    : 'border-zinc-700 focus:border-amber-400'
-                }`}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={passwordInput}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value);
+                    if (loginError) setLoginError('');
+                  }}
+                  placeholder="Digite a senha..."
+                  autoFocus
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  className={`w-full bg-zinc-950 border rounded-2xl pl-4 pr-12 py-3.5 text-lg text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-mono tracking-widest ${
+                    loginError
+                      ? 'border-red-500 ring-2 ring-red-500/20'
+                      : 'border-zinc-700 focus:border-amber-400'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-1 rounded-lg"
+                  title={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
               {loginError && (
                 <div className="mt-2 text-xs text-red-400 flex items-center gap-1.5 font-bold animate-in fade-in">
                   <AlertCircle className="w-4 h-4 shrink-0" />

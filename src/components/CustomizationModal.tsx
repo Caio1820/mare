@@ -77,8 +77,16 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
           <img
             src={product.image}
             alt={product.name}
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (!target.dataset.tried) {
+                target.dataset.tried = '1';
+                target.src = product.image.startsWith('/images/')
+                  ? `/src/assets/images/${product.image.replace('/images/', '')}`
+                  : `/images/${product.image.split('/').pop()}`;
+              }
+            }}
             className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
 

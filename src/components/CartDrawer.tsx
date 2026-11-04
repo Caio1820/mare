@@ -82,8 +82,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <img
                         src={product.image}
                         alt={product.name}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (!target.dataset.tried) {
+                            target.dataset.tried = '1';
+                            target.src = product.image.startsWith('/images/')
+                              ? `/src/assets/images/${product.image.replace('/images/', '')}`
+                              : `/images/${product.image.split('/').pop()}`;
+                          }
+                        }}
                         className="w-16 h-16 rounded-xl object-cover shrink-0 border border-zinc-800"
-                        referrerPolicy="no-referrer"
                       />
                       <div>
                         <span className="text-[10px] uppercase font-bold text-zinc-500 block">

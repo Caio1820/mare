@@ -20,10 +20,16 @@ export const Step1Idle: React.FC<Step1IdleProps> = ({ onStart }) => {
       {/* Background Hero Image with Dark Gradient Scrim */}
       <div className="absolute inset-0 z-0">
         <img
-          src="/src/assets/images/hero_idle_burger_1793068213371.jpg"
+          src="/images/hero_burger.jpg"
+          onError={(e) => {
+            const target = e.currentTarget;
+            if (!target.dataset.fallback) {
+              target.dataset.fallback = 'true';
+              target.src = '/src/assets/images/hero_idle_burger_1793068213371.jpg';
+            }
+          }}
           alt="Hambúrguer Artesanal Maré"
           className="w-full h-full object-cover object-center scale-105 transition-transform duration-1000 ease-out"
-          referrerPolicy="no-referrer"
         />
         {/* Cinematic dark scrim overlays */}
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-zinc-950/50" />

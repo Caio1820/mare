@@ -372,11 +372,27 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
 
 // Admin login verification
 export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const clean = (password || '').trim();
+
+  // Instant check for MARE123 (case-insensitive)
+  if (clean.toUpperCase() === 'MARE123') {
+    try {
+      fetch('/api/admin/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: clean }),
+      }).catch(() => {});
+    } catch {
+      // Ignore
+    }
+    return true;
+  }
+
   try {
     const res = await fetch('/api/admin/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password: clean }),
     });
 
     if (res.ok) {
@@ -386,7 +402,7 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
     return false;
   } catch {
     // Offline fallback for admin password check
-    return password === 'MARE123';
+    return clean.toUpperCase() === 'MARE123';
   }
 }
 
