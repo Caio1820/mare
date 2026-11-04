@@ -4,7 +4,7 @@ import { playKitchenBell } from './sound';
 const STORAGE_KEY = 'mare_orders_v2';
 const BROADCAST_CHANNEL_NAME = 'mare_restaurant_channel';
 
-// BroadcastChannel for cross-tab multi-window instant communication
+// BroadcastChannel for cross-tab multi-window instant communication (<5ms)
 let broadcastChannel: BroadcastChannel | null = null;
 if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   try {
@@ -16,8 +16,8 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
 
 // In-memory cache
 let cachedOrders: Order[] = [];
-let isConnectedSSE = false;
 let eventSource: EventSource | null = null;
+let previousOrderCount = 0;
 const listeners: Set<(orders: Order[]) => void> = new Set();
 
 // Fallback initial seeds
@@ -38,7 +38,7 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
           categoryLabel: 'Alto-Mar',
           price: 34.90,
           description: '',
-          image: '/src/assets/images/hero_idle_burger_1793068213371.jpg',
+          image: '/images/hero_burger.jpg',
           isBurger: true,
           defaultIngredients: ['Pão brioche', 'Blend 180g', 'Bacon caramelizado'],
           suggestedAddons: [],
@@ -62,7 +62,7 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
           categoryLabel: 'Primeira Onda',
           price: 24.90,
           description: '',
-          image: '/src/assets/images/mare_porcoes_batata_1793068213557.jpg',
+          image: '/images/porcoes_batata.jpg',
           isBurger: false,
           defaultIngredients: ['Batatas rústicas'],
           suggestedAddons: [],
@@ -97,7 +97,7 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
           categoryLabel: 'Maré Nobre',
           price: 39.90,
           description: '',
-          image: '/src/assets/images/mare_nobre_burger_1793068212982.jpg',
+          image: '/images/nobre_burger.jpg',
           isBurger: true,
           defaultIngredients: ['Pão australiano', 'Blend nobre 200g'],
           suggestedAddons: [],
@@ -139,7 +139,7 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
           categoryLabel: 'Onda Smash',
           price: 23.90,
           description: '',
-          image: '/src/assets/images/mare_smash_burger_1793068213279.jpg',
+          image: '/images/smash_burger.jpg',
           isBurger: true,
           defaultIngredients: [],
           suggestedAddons: [],
@@ -169,7 +169,19 @@ const INITIAL_SEEDED_ORDERS: Order[] = [
 
 // Helper to notify all internal listeners and persistent storage
 function notifyListeners(orders: Order[], isRemoteUpdate = false) {
+  // Check if new orders arrived (more than previous and at least one is "recebido")
+  if (previousOrderCount > 0 && orders.length > previousOrderCount) {
+    const hasNewRecebido = orders.some(
+      (o) => o.status === 'recebido' && !cachedOrders.some((c) => c.id === o.id)
+    );
+    if (hasNewRecebido) {
+      playKitchenBell();
+    }
+  }
+
+  previousOrderCount = orders.length;
   cachedOrders = orders;
+
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
@@ -186,7 +198,7 @@ function notifyListeners(orders: Order[], isRemoteUpdate = false) {
     }
   }
 
-  // Cross-tab broadcast
+  // Cross-tab broadcast via BroadcastChannel
   if (!isRemoteUpdate && broadcastChannel) {
     try {
       broadcastChannel.postMessage({ type: 'ORDERS_UPDATED', orders });
@@ -196,7 +208,7 @@ function notifyListeners(orders: Order[], isRemoteUpdate = false) {
   }
 }
 
-// Initialize SSE connection for Real-Time cross-device synchronization
+// Initialize SSE connection for real-time push from backend
 function initSSE() {
   if (typeof window === 'undefined') return;
   if (eventSource) return;
@@ -204,18 +216,10 @@ function initSSE() {
   try {
     eventSource = new EventSource('/api/orders/stream');
 
-    eventSource.onopen = () => {
-      isConnectedSSE = true;
-    };
-
     eventSource.onmessage = (event) => {
       try {
         const orders = JSON.parse(event.data);
         if (Array.isArray(orders)) {
-          // Check if a new order arrived to trigger short chime
-          if (cachedOrders.length > 0 && orders.length > cachedOrders.length) {
-            playKitchenBell();
-          }
           notifyListeners(orders, true);
         }
       } catch (err) {
@@ -224,7 +228,6 @@ function initSSE() {
     };
 
     eventSource.onerror = () => {
-      isConnectedSSE = false;
       // If server SSE fails or disconnects, retry in 5s
       eventSource?.close();
       eventSource = null;
@@ -239,10 +242,25 @@ function initSSE() {
 if (broadcastChannel) {
   broadcastChannel.onmessage = (event) => {
     if (event.data?.type === 'ORDERS_UPDATED' && Array.isArray(event.data.orders)) {
-      cachedOrders = event.data.orders;
       notifyListeners(event.data.orders, true);
     }
   };
+}
+
+// Listen to window storage events (when another tab updates localStorage)
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === STORAGE_KEY && event.newValue) {
+      try {
+        const parsed = JSON.parse(event.newValue);
+        if (Array.isArray(parsed)) {
+          notifyListeners(parsed, true);
+        }
+      } catch {
+        // Ignore
+      }
+    }
+  });
 }
 
 // Initial cache load from localStorage or seeds
@@ -253,14 +271,19 @@ export function getStoredOrders(): Order[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      cachedOrders = JSON.parse(raw);
-      return cachedOrders;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        cachedOrders = parsed;
+        previousOrderCount = parsed.length;
+        return cachedOrders;
+      }
     }
   } catch {
     // Ignore
   }
 
   cachedOrders = INITIAL_SEEDED_ORDERS;
+  previousOrderCount = INITIAL_SEEDED_ORDERS.length;
   return cachedOrders;
 }
 
@@ -303,6 +326,10 @@ export async function createOrder(orderPayload: {
 
     if (res.ok) {
       const newOrder: Order = await res.json();
+      // Immediately notify local cache, storage, and BroadcastChannel so other tabs see it instantly!
+      const current = getStoredOrders().filter((o) => o.id !== newOrder.id);
+      const updated = [newOrder, ...current];
+      notifyListeners(updated, false);
       return newOrder;
     }
   } catch (err) {
@@ -349,6 +376,19 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
     });
 
     if (res.ok) {
+      const updatedOrder = await res.json();
+      const current = getStoredOrders().map((ord) => {
+        if (ord.id === orderId) {
+          return {
+            ...ord,
+            ...updatedOrder,
+            status: nextStatus,
+            announcedAt: nextStatus === 'pronto' ? Date.now() : ord.announcedAt,
+          };
+        }
+        return ord;
+      });
+      notifyListeners(current, false);
       return;
     }
   } catch (err) {
@@ -412,10 +452,19 @@ export function subscribeToOrders(callback: (orders: Order[]) => void): () => vo
   // Send current cached orders immediately
   callback(getStoredOrders());
 
+  // Fetch fresh orders from backend right away
+  fetchOrdersFromApi();
+
   // Ensure SSE is active
   initSSE();
 
+  // Polling fallback every 2 seconds to guarantee cross-tab and cross-device sync
+  const pollTimer = setInterval(() => {
+    fetchOrdersFromApi();
+  }, 2000);
+
   return () => {
     listeners.delete(callback);
+    clearInterval(pollTimer);
   };
 }

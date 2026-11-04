@@ -48,8 +48,10 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Zone 2: Navigation between screens */}
       <div className="flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 p-1 rounded-2xl">
-        <button
-          onClick={() => {
+        <a
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
             playTouchSound(550);
             onNavigateScreen('autoatendimento');
           }}
@@ -58,14 +60,16 @@ export const Header: React.FC<HeaderProps> = ({
               ? 'bg-amber-500 text-zinc-950 shadow-md'
               : 'text-zinc-400 hover:text-zinc-200'
           }`}
-          title="Totem do Cliente"
+          title="Totem do Cliente (/)"
         >
           <Touchpad className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Autoatendimento</span>
-        </button>
+        </a>
 
-        <button
-          onClick={() => {
+        <a
+          href="/cozinha"
+          onClick={(e) => {
+            e.preventDefault();
             playTouchSound(550);
             onNavigateScreen('cozinha');
           }}
@@ -74,14 +78,16 @@ export const Header: React.FC<HeaderProps> = ({
               ? 'bg-amber-500 text-zinc-950 shadow-md'
               : 'text-zinc-400 hover:text-zinc-200'
           }`}
-          title="Cozinha (Restrito por senha)"
+          title="Cozinha KDS (/cozinha) - Senha: MARE123"
         >
           <ChefHat className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Cozinha</span>
-        </button>
+        </a>
 
-        <button
-          onClick={() => {
+        <a
+          href="/painel"
+          onClick={(e) => {
+            e.preventDefault();
             playTouchSound(550);
             onNavigateScreen('painel');
           }}
@@ -90,11 +96,11 @@ export const Header: React.FC<HeaderProps> = ({
               ? 'bg-amber-500 text-zinc-950 shadow-md'
               : 'text-zinc-400 hover:text-zinc-200'
           }`}
-          title="Painel de Chamadas (TV)"
+          title="Painel de Chamadas TV (/painel)"
         >
           <Tv className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Painel TV</span>
-        </button>
+        </a>
       </div>
 
       {/* Zone 3: Session Context & Reset */}
