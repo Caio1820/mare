@@ -12,6 +12,7 @@ import {
   AlertCircle,
   User,
   MessageSquare,
+  Phone,
 } from 'lucide-react';
 import { CartItem, OrderType, PaymentMethod } from '../types';
 import { playTouchSound, playSuccessChime } from '../utils/sound';
@@ -26,7 +27,8 @@ interface Step5PaymentProps {
     method: PaymentMethod,
     isPaidImmediately: boolean,
     customerName: string,
-    observations: string
+    observations: string,
+    customerPhone?: string
   ) => void;
 }
 
@@ -39,6 +41,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
   onConfirmPayment,
 }) => {
   const [customerName, setCustomerName] = useState<string>('');
+  const [customerPhone, setCustomerPhone] = useState<string>('');
   const [observations, setObservations] = useState<string>('');
   const [nameError, setNameError] = useState<string>('');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('pix');
@@ -70,14 +73,14 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
     playTouchSound(600);
     setTimeout(() => {
       playSuccessChime();
-      onConfirmPayment('pix', true, customerName.trim(), observations.trim());
+      onConfirmPayment('pix', true, customerName.trim(), observations.trim(), customerPhone.trim() || undefined);
     }, 1100);
   };
 
   const handleConfirmCounterPayment = () => {
     if (!validateName()) return;
     playSuccessChime();
-    onConfirmPayment(selectedMethod, false, customerName.trim(), observations.trim());
+    onConfirmPayment(selectedMethod, false, customerName.trim(), observations.trim(), customerPhone.trim() || undefined);
   };
 
   const quickObservationTags = [
@@ -153,6 +156,23 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                   <span>{nameError}</span>
                 </div>
               )}
+            </div>
+
+            {/* Optional WhatsApp Phone for notifications */}
+            <div>
+              <label className="text-[11px] sm:text-xs uppercase font-bold text-zinc-400 block mb-1">
+                WhatsApp / Celular (Opcional - para avisar quando pronto):
+              </label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="Ex: (96) 99123-4567"
+                  className="w-full bg-zinc-950 border border-zinc-700 focus:border-amber-400 rounded-xl sm:rounded-2xl pl-10 pr-3.5 py-2.5 sm:py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-mono"
+                />
+              </div>
             </div>
 
             {/* Quick Observations input */}

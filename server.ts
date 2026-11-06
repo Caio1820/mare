@@ -280,6 +280,7 @@ async function startServer() {
     try {
       const {
         customerName,
+        customerPhone,
         orderType,
         tableNumber,
         items,
@@ -308,6 +309,7 @@ async function startServer() {
         id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         orderNumber,
         customerName: customerName.trim(),
+        customerPhone: (customerPhone || '').trim() || undefined,
         orderType: orderType || 'local',
         tableNumber: orderType === 'local' ? tableNumber || '01' : undefined,
         items,

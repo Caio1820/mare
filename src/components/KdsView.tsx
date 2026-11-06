@@ -14,10 +14,16 @@ import {
   Sparkles,
   Eye,
   EyeOff,
+  Printer,
+  Smartphone,
+  Volume2,
+  Phone,
+  Layers,
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
-import { subscribeToOrders, updateOrderStatus, verifyAdminPassword } from '../utils/kdsStore';
-import { playTouchSound, playKitchenBell } from '../utils/sound';
+import { subscribeToOrders, updateOrderStatus, verifyAdminPassword, announceOrder } from '../utils/kdsStore';
+import { playTouchSound, playKitchenBell, speakOrderReady, unlockAudioContext } from '../utils/sound';
+import { ThermalReceipt } from './ThermalReceipt';
 
 interface KdsViewProps {
   onBackToKiosk: () => void;
@@ -34,35 +40,37 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [now, setNow] = useState<number>(Date.now());
   const [mobileTab, setMobileTab] = useState<'recebido' | 'preparo' | 'pronto'>('recebido');
+  const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
+  const [lastAnnouncedId, setLastAnnouncedId] = useState<string | null>(null);
 
-  // Listen for real-time orders when authenticated
+  // Real-time time updater for elapsed minute calculation
   useEffect(() => {
-    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
+  // Listen to orders from KdsStore
+  useEffect(() => {
     const unsubscribe = subscribeToOrders((newOrders) => {
       setOrders(newOrders);
     });
 
-    const clockTimer = setInterval(() => {
-      setNow(Date.now());
-    }, 15000);
-
     return () => {
       unsubscribe();
-      clearInterval(clockTimer);
     };
-  }, [isAuthenticated]);
+  }, []);
 
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-
+  // Submit Password
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const clean = passwordInput.trim();
-    if (!clean) {
+    if (!passwordInput.trim()) {
       setLoginError('Digite a senha de administrador.');
       return;
     }
@@ -71,54 +79,70 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
     setLoginError('');
 
     try {
-      const isValid = await verifyAdminPassword(clean);
+      const isValid = await verifyAdminPassword(passwordInput);
       if (isValid) {
-        playKitchenBell();
+        unlockAudioContext();
         sessionStorage.setItem(AUTH_STORAGE_KEY, 'true');
         setIsAuthenticated(true);
         setPasswordInput('');
+        setLoginError('');
       } else {
-        playTouchSound(380);
-        setLoginError('Senha incorreta');
+        setLoginError('Senha incorreta. Acesso não permitido.');
       }
     } catch {
-      setLoginError('Erro ao verificar senha.');
+      setLoginError('Erro ao validar senha. Tente novamente.');
     } finally {
       setIsVerifying(false);
     }
   };
 
+  // Logout
   const handleLogout = () => {
-    playTouchSound(420);
+    playTouchSound(450);
     sessionStorage.removeItem(AUTH_STORAGE_KEY);
     setIsAuthenticated(false);
-    setPasswordInput('');
-    setLoginError('');
   };
 
+  // Change Order Status
   const handleStatusChange = async (orderId: string, nextStatus: OrderStatus) => {
     playTouchSound(600);
+    if (nextStatus === 'pronto') {
+      playKitchenBell();
+      const target = orders.find((o) => o.id === orderId);
+      if (target) {
+        speakOrderReady(target.orderNumber, target.customerName).catch(() => {});
+      }
+    }
     await updateOrderStatus(orderId, nextStatus);
   };
 
-  // 1. LOGIN SCREEN (If not authenticated)
+  // Re-call customer (Ding-dong on TV + Speech synthesis + WhatsApp trigger)
+  const handleCallCustomer = (order: Order) => {
+    playKitchenBell();
+    announceOrder(order.id);
+    speakOrderReady(order.orderNumber, order.customerName).catch(() => {});
+    setLastAnnouncedId(order.id);
+    setTimeout(() => setLastAnnouncedId(null), 4000);
+  };
+
+  // 1. LOGIN SCREEN (Unauthenticated)
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col justify-between p-6">
-        {/* Top Back Nav */}
-        <div className="flex items-center justify-between max-w-md mx-auto w-full pt-4">
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-between p-4 sm:p-8">
+        <div className="flex items-center justify-between max-w-md mx-auto w-full pt-2">
           <button
             onClick={() => {
-              playTouchSound(500);
+              playTouchSound(480);
               onBackToKiosk();
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 font-semibold text-xs hover:bg-zinc-800 hover:text-white transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all text-xs font-semibold"
           >
-            <ArrowLeft className="w-4 h-4 text-amber-500" />
+            <ArrowLeft className="w-4 h-4" />
             <span>Voltar ao Totem</span>
           </button>
-          <span className="text-zinc-500 text-xs uppercase font-bold tracking-wider">
-            Área Restrita
+
+          <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-widest">
+            Acesso Restrito
           </span>
         </div>
 
@@ -239,14 +263,14 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-wider text-zinc-100">
-                Linha de Produção & Cozinha
+                Linha de Produção & Recepção
               </h1>
               <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider">
                 Ao Vivo
               </span>
             </div>
             <span className="text-xs text-zinc-400 font-medium">
-              Maré Hambúrgueria · Sincronização em Tempo Real
+              Maré Hambúrgueria · Chamada de Senhas & Impressão Térmica
             </span>
           </div>
         </div>
@@ -287,7 +311,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
         </div>
       </header>
 
-      {/* Mobile Column Tab Switcher (visible only on small screens) */}
+      {/* Mobile Column Tab Switcher */}
       <div className="md:hidden bg-zinc-900/95 backdrop-blur-md border-b border-zinc-800 p-2 flex items-center gap-1.5 sticky top-[60px] z-10">
         <button
           onClick={() => {
@@ -341,7 +365,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
         </button>
       </div>
 
-      {/* Main Production Columns (Tabs on Mobile, 3-column Grid on Desktop) */}
+      {/* Main Production Columns */}
       <div className="flex-1 p-3 sm:p-6 pb-safe">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-start">
           {/* COLUMN 1: RECEBIDO */}
@@ -354,7 +378,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse" />
                 <h3 className="font-display text-base sm:text-lg font-bold uppercase tracking-wide text-zinc-100">
-                  1. Recebido
+                  1. Recebido (Novo Pedido)
                 </h3>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold font-mono">
@@ -374,6 +398,9 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
                     key={order.id}
                     order={order}
                     now={now}
+                    onPrint={() => setPrintingOrder(order)}
+                    onCallCustomer={() => handleCallCustomer(order)}
+                    isAnnouncedRecently={lastAnnouncedId === order.id}
                     actionButton={
                       <button
                         onClick={() => handleStatusChange(order.id, 'preparo')}
@@ -399,7 +426,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-orange-500 animate-bounce" />
                 <h3 className="font-display text-base sm:text-lg font-bold uppercase tracking-wide text-zinc-100">
-                  2. Em Preparo
+                  2. Em Preparo (Chapa)
                 </h3>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold font-mono">
@@ -420,6 +447,9 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
                     order={order}
                     now={now}
                     isHighlighted
+                    onPrint={() => setPrintingOrder(order)}
+                    onCallCustomer={() => handleCallCustomer(order)}
+                    isAnnouncedRecently={lastAnnouncedId === order.id}
                     actionButton={
                       <button
                         onClick={() => handleStatusChange(order.id, 'pronto')}
@@ -445,7 +475,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <h3 className="font-display text-base sm:text-lg font-bold uppercase tracking-wide text-zinc-100">
-                  3. Pronto (Na TV)
+                  3. Pronto na Recepção
                 </h3>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold font-mono">
@@ -466,14 +496,28 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
                     order={order}
                     now={now}
                     isReady
+                    onPrint={() => setPrintingOrder(order)}
+                    onCallCustomer={() => handleCallCustomer(order)}
+                    isAnnouncedRecently={lastAnnouncedId === order.id}
                     actionButton={
-                      <button
-                        onClick={() => handleStatusChange(order.id, 'entregue')}
-                        className="w-full py-3 sm:py-3.5 px-4 rounded-xl sm:rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-display font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all min-h-[44px] sm:min-h-[48px] border border-zinc-700"
-                      >
-                        <Sparkles className="w-4 h-4 text-amber-400" />
-                        <span>Entregue (Remover)</span>
-                      </button>
+                      <div className="space-y-2 w-full">
+                        {/* Prominent Call Button */}
+                        <button
+                          onClick={() => handleCallCustomer(order)}
+                          className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md shadow-amber-500/20"
+                        >
+                          <Bell className="w-4 h-4" />
+                          <span>Chamar Novamente (TV + Voz)</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleStatusChange(order.id, 'entregue')}
+                          className="w-full py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-display font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all border border-zinc-700"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Entregue (Remover da Linha)</span>
+                        </button>
+                      </div>
                     }
                   />
                 ))
@@ -482,6 +526,14 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
           </div>
         </div>
       </div>
+
+      {/* Thermal Receipt Print Modal */}
+      {printingOrder && (
+        <ThermalReceipt
+          order={printingOrder}
+          onClose={() => setPrintingOrder(null)}
+        />
+      )}
     </div>
   );
 };
@@ -491,24 +543,37 @@ interface OrderKitchenCardProps {
   order: Order;
   now: number;
   actionButton: React.ReactNode;
+  onPrint: () => void;
+  onCallCustomer: () => void;
   isHighlighted?: boolean;
   isReady?: boolean;
+  isAnnouncedRecently?: boolean;
 }
 
 const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
   order,
   now,
   actionButton,
+  onPrint,
+  onCallCustomer,
   isHighlighted,
   isReady,
+  isAnnouncedRecently,
 }) => {
   const elapsedMinutes = Math.floor((now - order.createdAt) / 60000);
   const isUrgent = elapsedMinutes >= 12 && !isReady;
 
+  const cleanPhone = (order.customerPhone || '').replace(/\D/g, '');
+  const whatsappUrl = `https://wa.me/55${cleanPhone || '96999999999'}?text=${encodeURIComponent(
+    `Olá ${order.customerName}! Seu pedido ${order.orderNumber} está pronto e te esperando na recepção da Maré Hambúrgueria! 🍔 Venha retirar no balcão.`
+  )}`;
+
   return (
     <div
       className={`bg-zinc-950 border-2 rounded-2xl p-4 shadow-xl flex flex-col justify-between gap-3.5 transition-all ${
-        isReady
+        isAnnouncedRecently
+          ? 'border-amber-400 ring-4 ring-amber-500/30 scale-[1.01]'
+          : isReady
           ? 'border-emerald-500/60 shadow-emerald-500/5'
           : isUrgent
           ? 'border-red-500 shadow-red-500/10'
@@ -530,7 +595,7 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
           <span className="text-[11px] text-zinc-400 block font-medium">
             {order.orderType === 'local'
               ? `Mesa ${order.tableNumber || '01'} · Salão`
-              : 'Para Viagem'}
+              : 'Para Viagem (Balcão)'}
           </span>
         </div>
 
@@ -546,6 +611,16 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
           <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">
             {order.formattedTime || ''}
           </span>
+
+          {/* Quick print button on top-right */}
+          <button
+            onClick={onPrint}
+            title="Imprimir comanda térmica"
+            className="mt-1.5 p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-amber-400 border border-zinc-800 transition-colors inline-flex items-center gap-1 text-[10px] font-mono"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Comanda</span>
+          </button>
         </div>
       </div>
 
@@ -562,8 +637,36 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
               </span>
             </div>
 
-            {/* Customization Details for Cook */}
-            {item.customization && (
+            {/* 3D Custom Burger Layers Breakdown */}
+            {item.burger3DConfig && (
+              <div className="pl-7 mt-1.5 p-2 rounded-lg bg-amber-950/20 border border-amber-500/30 text-[11px] space-y-1">
+                <div className="flex items-center gap-1 font-bold text-amber-400">
+                  <Layers className="w-3 h-3" />
+                  <span>Montado no 3D:</span>
+                </div>
+                <div className="text-zinc-300">• Pão: {item.burger3DConfig.bunLabel}</div>
+                <div className="text-amber-300 font-semibold">
+                  • {item.burger3DConfig.pattiesCount}x Carne ({item.burger3DConfig.meatDoneness})
+                </div>
+                <div className="text-zinc-300">• Queijo: {item.burger3DConfig.cheeseLabel}</div>
+                {item.burger3DConfig.selectedAddons.bacon && (
+                  <div className="text-emerald-400 font-semibold">• + Bacon Crocante</div>
+                )}
+                {item.burger3DConfig.selectedAddons.cebola_caram && (
+                  <div className="text-amber-400">• + Cebola Caramelizada</div>
+                )}
+                {item.burger3DConfig.selectedAddons.picles && (
+                  <div className="text-emerald-400">• + Picles Artesanal</div>
+                )}
+                {item.burger3DConfig.selectedAddons.salada_mare && (
+                  <div className="text-emerald-400">• + Salada Maré</div>
+                )}
+                <div className="text-zinc-300">• Molho: {item.burger3DConfig.sauceLabel}</div>
+              </div>
+            )}
+
+            {/* Standard Customization Details */}
+            {!item.burger3DConfig && item.customization && (
               <div className="pl-7 mt-1 space-y-0.5 text-[11px]">
                 {item.product.isBurger && (
                   <div className="text-amber-400 font-bold">
@@ -597,21 +700,35 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
         ))}
       </div>
 
-      {/* General Order Observations (in prominent alert box) */}
+      {/* General Order Observations */}
       {order.observations && (
         <div className="p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/40 text-amber-300 text-xs flex items-start gap-2">
           <MessageSquare className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div>
             <strong className="block text-[10px] uppercase tracking-wider text-amber-400">
-              Observação Geral:
+              Observação do Cliente:
             </strong>
-            <span>{order.observations}</span>
+            <p className="font-semibold text-zinc-100">{order.observations}</p>
           </div>
         </div>
       )}
 
-      {/* Action Button */}
-      <div className="pt-1">{actionButton}</div>
+      {/* Bottom Communication Tools: WhatsApp link & Action Button */}
+      <div className="space-y-2 pt-2 border-t border-zinc-850">
+        {isReady && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2 px-3 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-600/50 text-emerald-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Notificar Cliente via WhatsApp 📲</span>
+          </a>
+        )}
+
+        {actionButton}
+      </div>
     </div>
   );
 };

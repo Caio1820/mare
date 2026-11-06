@@ -43,12 +43,14 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
     const unsubscribe = subscribeToOrders((newOrders) => {
       setOrders(newOrders);
 
-      // Check for newly ready orders
+      // Check for newly ready orders or explicitly re-announced orders
       const prontoOrders = newOrders.filter((o) => o.status === 'pronto');
 
       if (!initialMountRef.current) {
         for (const order of prontoOrders) {
-          if (!announcedOrderIdsRef.current.has(order.id)) {
+          const isNewlyReady = !announcedOrderIdsRef.current.has(order.id);
+          const isRecentlyAnnounced = order.announcedAt && (Date.now() - order.announcedAt < 4000);
+          if (isNewlyReady || isRecentlyAnnounced) {
             announcedOrderIdsRef.current.add(order.id);
             triggerOrderAnnouncement(order);
             break;

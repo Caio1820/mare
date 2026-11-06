@@ -28,11 +28,31 @@ export interface CustomizationSelection {
   specialNotes: string;
 }
 
+export interface CustomBurger3DConfig {
+  bunType: 'brioche' | 'australiano' | 'gergelim';
+  bunLabel: string;
+  pattiesCount: 1 | 2 | 3;
+  meatDoneness: 'Ao ponto' | 'Bem passado' | 'Selado';
+  cheeseType: 'cheddar_cremoso' | 'queijo_prato' | 'queijo_regional';
+  cheeseLabel: string;
+  selectedAddons: {
+    bacon: boolean;
+    cebola_caram: boolean;
+    picles: boolean;
+    salada_mare: boolean;
+  };
+  sauce: 'molho_mare' | 'maionese_verde' | 'barbecue' | 'tartaro';
+  sauceLabel: string;
+  specialNotes?: string;
+  totalPrice: number;
+}
+
 export interface CartItem {
   cartItemId: string;
   product: Product;
   quantity: number;
   customization?: CustomizationSelection;
+  burger3DConfig?: CustomBurger3DConfig;
   unitPrice: number;
   totalPrice: number;
 }
@@ -47,10 +67,11 @@ export interface Order {
   id: string;
   orderNumber: string; // e.g. "#001", "#002"
   customerName: string; // Mandatory customer name
+  customerPhone?: string; // Optional phone for WhatsApp notification
   orderType: OrderType;
   tableNumber?: string; // 01 to 10
   items: CartItem[];
-  observations?: string; // General order observations (e.g. "sem talher", "guardanapo extra")
+  observations?: string; // General order observations
   subtotal: number;
   total: number;
   paymentMethod: PaymentMethod;
@@ -60,6 +81,7 @@ export interface Order {
   formattedTime?: string; // e.g. "14:32"
   estimatedMinutes?: number;
   announcedAt?: number; // timestamp when called on TV panel
+  autoPrinted?: boolean; // whether thermal ticket was sent to print
 }
 
 export type KioskStep = 
@@ -69,4 +91,14 @@ export type KioskStep =
   | 'payment'        // Step 5
   | 'confirmation';  // Step 6
 
-export type AppScreen = 'autoatendimento' | 'cozinha' | 'painel';
+export type AppScreen = 'autoatendimento' | 'cozinha' | 'painel' | 'montador-3d';
+
+export interface UpSellItem {
+  id: string;
+  name: string;
+  category: 'porcao' | 'bebida' | 'sobremesa';
+  price: number;
+  description: string;
+  image: string;
+  badge?: string;
+}

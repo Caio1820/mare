@@ -329,6 +329,7 @@ export async function syncOrders(): Promise<Order[]> {
 // Create new order (from Kiosk)
 export async function createOrder(orderPayload: {
   customerName: string;
+  customerPhone?: string;
   orderType: 'local' | 'viagem';
   tableNumber?: string;
   items: any[];
@@ -348,6 +349,7 @@ export async function createOrder(orderPayload: {
     id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     orderNumber: `#${numStr}`,
     customerName: orderPayload.customerName.trim(),
+    customerPhone: orderPayload.customerPhone?.trim(),
     orderType: orderPayload.orderType,
     tableNumber: orderPayload.tableNumber,
     items: orderPayload.items,
@@ -413,6 +415,29 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
     });
   } catch {
     // Local update is already active
+  }
+}
+
+// Re-announce customer order (Ding-dong on TV + Speech)
+export async function announceOrder(orderId: string): Promise<void> {
+  const current = readFromStorage();
+  const updated = current.map((ord) => {
+    if (ord.id === orderId) {
+      return {
+        ...ord,
+        announcedAt: Date.now(),
+      };
+    }
+    return ord;
+  });
+  notifyListeners(updated, false);
+
+  if (broadcastChannel) {
+    try {
+      broadcastChannel.postMessage({ type: 'ORDER_ANNOUNCED', orderId, timestamp: Date.now() });
+    } catch {
+      // Ignore
+    }
   }
 }
 

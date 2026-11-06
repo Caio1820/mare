@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, ChefHat, Tv, Touchpad, MapPin } from 'lucide-react';
+import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, Sparkles } from 'lucide-react';
 import { OrderType, AppScreen } from '../types';
 import { playTouchSound } from '../utils/sound';
 
@@ -74,6 +74,26 @@ export const Header: React.FC<HeaderProps> = ({
           <Touchpad className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Autoatendimento</span>
           <span className="sm:hidden">Totem</span>
+        </a>
+
+        {/* 3D Burger Builder link */}
+        <a
+          href="#/montador-3d"
+          onClick={(e) => {
+            e.preventDefault();
+            playTouchSound(550);
+            onNavigateScreen('montador-3d');
+          }}
+          className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[40px] ${
+            activeScreen === 'montador-3d'
+              ? 'bg-amber-500 text-zinc-950 shadow-md'
+              : 'text-zinc-400 hover:text-amber-300'
+          }`}
+          title="Montador de Hambúrguer 3D Interativo (#/montador-3d)"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span className="hidden md:inline">Montador 3D</span>
+          <span className="md:hidden">3D</span>
         </a>
 
         <div className="flex items-center">

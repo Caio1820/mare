@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { CheckCircle2, Clock, ChefHat, Receipt, ArrowRight, Tv, User } from 'lucide-react';
+import { CheckCircle2, Clock, ChefHat, Receipt, ArrowRight, Tv, User, Printer } from 'lucide-react';
 import { Order } from '../types';
-import { ReceiptModal } from './ReceiptModal';
+import { ThermalReceipt } from './ThermalReceipt';
 import { playTouchSound } from '../utils/sound';
 
 interface Step6ConfirmationProps {
@@ -16,6 +16,22 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
 }) => {
   const [secondsRemaining, setSecondsRemaining] = useState<number>(10);
   const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(false);
+  const [hasAutoPrinted, setHasAutoPrinted] = useState<boolean>(false);
+
+  // Auto trigger thermal print on mount for Pix paid orders
+  useEffect(() => {
+    if (!hasAutoPrinted && order.paymentStatus === 'pago') {
+      setHasAutoPrinted(true);
+      const printTimer = setTimeout(() => {
+        try {
+          window.print();
+        } catch {
+          // ignore
+        }
+      }, 700);
+      return () => clearTimeout(printTimer);
+    }
+  }, [hasAutoPrinted, order]);
 
   // Trigger celebration confetti on arrival
   useEffect(() => {
@@ -103,7 +119,7 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
           </span>
         </div>
 
-        {/* Receipt trigger */}
+        {/* Thermal Receipt trigger */}
         <div className="mt-4 sm:mt-6">
           <button
             onClick={() => {
@@ -112,8 +128,8 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
             }}
             className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold border border-zinc-700 flex items-center justify-center gap-2 transition-all active:scale-95 min-h-[44px]"
           >
-            <Receipt className="w-4 h-4 text-amber-400" />
-            <span>Visualizar / Imprimir Comprovante</span>
+            <Printer className="w-4 h-4 text-amber-400" />
+            <span>Visualizar / Reimprimir Comanda Térmica (80mm)</span>
           </button>
         </div>
       </div>
@@ -147,8 +163,8 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
         </button>
       </div>
 
-      {/* Receipt Modal */}
-      {isReceiptOpen && <ReceiptModal order={order} onClose={() => setIsReceiptOpen(false)} />}
+      {/* Thermal Receipt Modal */}
+      {isReceiptOpen && <ThermalReceipt order={order} onClose={() => setIsReceiptOpen(false)} />}
     </div>
   );
 };
