@@ -1,0 +1,35 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Pedido do restaurante Maré Hambúrgueria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID único do pedido" },
+        "orderNumber": { "type": "string", "description": "Número sequencial da comanda (ex: #001)" },
+        "customerName": { "type": "string", "description": "Nome do cliente ou Mesa XX" },
+        "customerPhone": { "type": "string", "description": "Telefone opcional para WhatsApp" },
+        "orderType": { "type": "string", "enum": ["local", "viagem"], "description": "Local ou Viagem" },
+        "tableNumber": { "type": "string", "description": "Número da mesa se for local" },
+        "items": { "type": "array", "description": "Itens do pedido com personalizações" },
+        "observations": { "type": "string", "description": "Observações da cozinha" },
+        "subtotal": { "type": "number", "description": "Subtotal dos itens" },
+        "total": { "type": "number", "description": "Valor total a pagar no balcão" },
+        "paymentMethod": { "type": "string", "description": "Método de pagamento (balcao)" },
+        "paymentStatus": { "type": "string", "description": "Status de pagamento no balcão" },
+        "status": { "type": "string", "enum": ["recebido", "preparo", "pronto", "entregue"], "description": "Status no KDS" },
+        "createdAt": { "type": "number", "description": "Timestamp epoch de criação" },
+        "formattedTime": { "type": "string", "description": "Horário formatado (HH:mm)" },
+        "estimatedMinutes": { "type": "number", "description": "Tempo estimado em minutos" },
+        "announcedAt": { "type": "number", "description": "Timestamp de chamada na TV" }
+      },
+      "required": ["id", "orderNumber", "customerName", "orderType", "items", "total", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Coleção central de pedidos do restaurante em tempo real"
+    }
+  }
+}

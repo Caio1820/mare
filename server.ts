@@ -291,6 +291,9 @@ async function startServer() {
 
   // GET all orders
   app.get('/api/orders', (_req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const orders = readOrdersFromFile();
     res.json(orders);
   });

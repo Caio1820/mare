@@ -1,5 +1,16 @@
 import { Order, OrderStatus, PaymentMethod } from '../types';
 import { playKitchenBell } from './sound';
+import { db } from '../lib/firebase';
+import {
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+} from 'firebase/firestore';
 
 const STORAGE_KEY = 'mare_orders_v2';
 const BROADCAST_CHANNEL_NAME = 'mare_restaurant_channel';
@@ -295,10 +306,40 @@ export function getStoredOrders(): Order[] {
   return cachedOrders;
 }
 
+// Firestore real-time synchronization across ALL devices and networks
+let firestoreUnsubscribe: (() => void) | null = null;
+
+export function initFirestoreSync() {
+  if (typeof window === 'undefined' || !db) return;
+  if (firestoreUnsubscribe) return;
+
+  try {
+    const ordersCol = collection(db, 'orders');
+    const q = query(ordersCol, orderBy('createdAt', 'desc'), limit(100));
+    firestoreUnsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const remoteOrders: Order[] = [];
+          snapshot.forEach((docSnap) => {
+            remoteOrders.push(docSnap.data() as Order);
+          });
+          notifyListeners(remoteOrders, true);
+        }
+      },
+      (err) => {
+        console.warn('[Firestore] Realtime sync error, falling back to REST/polling:', err);
+      }
+    );
+  } catch (err) {
+    console.warn('[Firestore] Failed to attach realtime listener:', err);
+  }
+}
+
 // Sync function called periodically: checks backend API, and if unavailable (e.g. Vercel static), syncs from localStorage
 export async function syncOrders(): Promise<Order[]> {
   try {
-    const res = await fetch('/api/orders');
+    const res = await fetch(`/api/orders?t=${Date.now()}`, { cache: 'no-store' });
     if (res.ok) {
       const orders = await res.json();
       if (Array.isArray(orders)) {
@@ -326,7 +367,7 @@ export async function syncOrders(): Promise<Order[]> {
   return cachedOrders;
 }
 
-// Create new order (from Kiosk)
+// Create new order (from Kiosk or Mobile QR scan)
 export async function createOrder(orderPayload: {
   customerName: string;
   customerPhone?: string;
@@ -364,11 +405,20 @@ export async function createOrder(orderPayload: {
     estimatedMinutes: 15,
   };
 
-  // IMMEDIATELY update local storage, cached orders, and broadcast to other open tabs!
+  // 1. IMMEDIATELY update local storage, cached orders, and broadcast to other open tabs!
   const updatedList = [localNewOrder, ...current];
   notifyListeners(updatedList, false);
 
-  // In parallel, attempt to sync with backend server if available
+  // 2. Persist to Firestore in real time for cross-device synchronization (Customer Phone -> Kitchen Tablet)
+  try {
+    const orderDocRef = doc(db, 'orders', localNewOrder.id);
+    await setDoc(orderDocRef, localNewOrder);
+    console.log('[Firestore] Pedido sincronizado em tempo real na nuvem:', localNewOrder.orderNumber);
+  } catch (firestoreErr) {
+    console.warn('[Firestore] Erro ao sincronizar com Firestore:', firestoreErr);
+  }
+
+  // 3. In parallel, attempt to sync with backend server if available
   try {
     const res = await fetch('/api/orders', {
       method: 'POST',
@@ -381,6 +431,11 @@ export async function createOrder(orderPayload: {
       // If server returned an order with official sequential ID, replace it smoothly
       const synced = updatedList.map((o) => (o.id === localNewOrder.id ? serverOrder : o));
       notifyListeners(synced, false);
+      try {
+        await setDoc(doc(db, 'orders', serverOrder.id), serverOrder);
+      } catch {
+        // ignore
+      }
       return serverOrder;
     } else {
       const errText = await res.text();
@@ -409,7 +464,19 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
   });
   notifyListeners(updated, false);
 
-  // 2. In parallel, notify backend server if available
+  // 2. Update Firestore in real time for all devices (Kitchen -> TV Panel / Customer Screen)
+  try {
+    const orderDocRef = doc(db, 'orders', orderId);
+    const updatePayload: any = { status: nextStatus };
+    if (nextStatus === 'pronto') {
+      updatePayload.announcedAt = Date.now();
+    }
+    await updateDoc(orderDocRef, updatePayload);
+  } catch (e) {
+    console.warn('[Firestore] Erro ao atualizar status no Firestore:', e);
+  }
+
+  // 3. In parallel, notify backend server if available
   try {
     await fetch(`/api/orders/${orderId}/status`, {
       method: 'PATCH',
@@ -424,20 +491,28 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
 // Re-announce customer order (Ding-dong on TV + Speech)
 export async function announceOrder(orderId: string): Promise<void> {
   const current = readFromStorage();
+  const now = Date.now();
   const updated = current.map((ord) => {
     if (ord.id === orderId) {
       return {
         ...ord,
-        announcedAt: Date.now(),
+        announcedAt: now,
       };
     }
     return ord;
   });
   notifyListeners(updated, false);
 
+  try {
+    const orderDocRef = doc(db, 'orders', orderId);
+    await updateDoc(orderDocRef, { announcedAt: now });
+  } catch {
+    // Ignore
+  }
+
   if (broadcastChannel) {
     try {
-      broadcastChannel.postMessage({ type: 'ORDER_ANNOUNCED', orderId, timestamp: Date.now() });
+      broadcastChannel.postMessage({ type: 'ORDER_ANNOUNCED', orderId, timestamp: now });
     } catch {
       // Ignore
     }
@@ -486,6 +561,9 @@ export function subscribeToOrders(callback: (orders: Order[]) => void): () => vo
   // Send current cached orders immediately
   callback(getStoredOrders());
 
+  // Attach Firestore real-time listener (works across different phones, tablets, networks)
+  initFirestoreSync();
+
   // Run sync immediately
   syncOrders();
 
@@ -500,5 +578,9 @@ export function subscribeToOrders(callback: (orders: Order[]) => void): () => vo
   return () => {
     listeners.delete(callback);
     clearInterval(pollTimer);
+    if (listeners.size === 0 && firestoreUnsubscribe) {
+      firestoreUnsubscribe();
+      firestoreUnsubscribe = null;
+    }
   };
 }
