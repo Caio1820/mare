@@ -18,7 +18,6 @@ import { Step5Payment } from './components/Step5Payment';
 import { Step6Confirmation } from './components/Step6Confirmation';
 import { KdsView } from './components/KdsView';
 import { TvPanel } from './components/TvPanel';
-import { Burger3DBuilder } from './components/Burger3DBuilder';
 import { UpSellModal } from './components/UpSellModal';
 import { createOrder } from './utils/kdsStore';
 
@@ -37,14 +36,6 @@ function getScreenFromUrl(): AppScreen {
   }
   if (path.includes('painel') || hash.includes('painel')) {
     return 'painel';
-  }
-  if (
-    path.includes('montador') ||
-    hash.includes('montador') ||
-    path.includes('3d') ||
-    hash.includes('3d')
-  ) {
-    return 'montador-3d';
   }
   return 'autoatendimento';
 }
@@ -231,19 +222,6 @@ export default function App() {
       ) : activeScreen === 'cozinha' ? (
         /* 2. KITCHEN KDS SCREEN (protected by password) */
         <KdsView onBackToKiosk={() => handleNavigateScreen('autoatendimento')} />
-      ) : activeScreen === 'montador-3d' ? (
-        /* 3. INTERACTIVE 3D BURGER BUILDER ("Monte o Seu Maré 3D") */
-        <Burger3DBuilder
-          onBack={() => handleNavigateScreen('autoatendimento')}
-          onAddToCart={(customItem) => {
-            setCartItems((prev) => [...prev, customItem]);
-            handleNavigateScreen('autoatendimento');
-            if (currentStep === 'idle') {
-              setCurrentStep('menu');
-            }
-            setIsCartDrawerOpen(true);
-          }}
-        />
       ) : (
         /* 4. AUTOATENDIMENTO (KIOSK) SCREEN */
         <>
@@ -277,7 +255,6 @@ export default function App() {
                 cartTotal={cartTotal}
                 onProceedToPayment={handleProceedToPayment}
                 onOpenCartModal={() => setIsCartDrawerOpen(true)}
-                onOpen3DBuilder={() => handleNavigateScreen('montador-3d')}
               />
             )}
 

@@ -12,7 +12,6 @@ interface Step3CatalogProps {
   cartTotal: number;
   onProceedToPayment: () => void;
   onOpenCartModal: () => void;
-  onOpen3DBuilder?: () => void;
 }
 
 export const Step3Catalog: React.FC<Step3CatalogProps> = ({
@@ -21,7 +20,6 @@ export const Step3Catalog: React.FC<Step3CatalogProps> = ({
   cartTotal,
   onProceedToPayment,
   onOpenCartModal,
-  onOpen3DBuilder,
 }) => {
   const [activeCategory, setActiveCategory] = useState<CategoryId>('artesanais');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -136,41 +134,6 @@ export const Step3Catalog: React.FC<Step3CatalogProps> = ({
             <div className="text-[11px] sm:text-xs text-zinc-500 font-medium">
               {filteredProducts.length} itens disponíveis
             </div>
-          </div>
-        )}
-
-        {/* 3D Interactive Customizer Feature Banner */}
-        {onOpen3DBuilder && searchQuery === '' && (
-          <div className="mb-6 p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/15 via-zinc-900 to-amber-950/30 border-2 border-amber-500/40 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
-            <div className="flex items-center gap-3.5 sm:gap-4">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-2xl sm:text-3xl shrink-0">
-                🍔
-              </div>
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-1">
-                  <Sparkles className="w-3 h-3" />
-                  <span>Exclusivo · Experiência 3D Interativa</span>
-                </div>
-                <h3 className="font-display text-base sm:text-2xl font-black uppercase text-zinc-100 tracking-wide">
-                  Monte o Seu Maré 3D
-                </h3>
-                <p className="text-xs sm:text-sm text-zinc-400 max-w-xl">
-                  Escolha pão, ponto da carne, queijos derretidos e adicionais com rotação 360°, iluminação de estúdio e cálculo de preço em tempo real.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                playTouchSound(580);
-                onOpen3DBuilder();
-              }}
-              className="w-full md:w-auto px-5 py-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 shrink-0 active:scale-95 transition-all min-h-[46px]"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Abrir Montador 3D</span>
-              <span className="text-base">→</span>
-            </button>
           </div>
         )}
 
