@@ -186,12 +186,12 @@ const listeners: Set<(orders: Order[]) => void> = new Set();
 
 // Helper to notify all internal listeners and persistent storage
 function notifyListeners(orders: Order[], isRemoteUpdate = false) {
-  // Check if new orders arrived (more than previous and at least one is "recebido")
-  if (previousOrderCount > 0 && orders.length > previousOrderCount) {
-    const hasNewRecebido = orders.some(
+  // Check if new orders with status 'recebido' arrived that were not in cachedOrders
+  if (cachedOrders.length > 0) {
+    const hasIncomingRecebido = orders.some(
       (o) => o.status === 'recebido' && !cachedOrders.some((c) => c.id === o.id)
     );
-    if (hasNewRecebido) {
+    if (hasIncomingRecebido) {
       try {
         playKitchenBell();
       } catch {
@@ -251,7 +251,7 @@ function initSSE() {
     eventSource.onerror = () => {
       eventSource?.close();
       eventSource = null;
-      setTimeout(initSSE, 6000);
+      setTimeout(initSSE, 2500);
     };
   } catch (err) {
     console.error('Failed to init SSE:', err);
@@ -382,9 +382,12 @@ export async function createOrder(orderPayload: {
       const synced = updatedList.map((o) => (o.id === localNewOrder.id ? serverOrder : o));
       notifyListeners(synced, false);
       return serverOrder;
+    } else {
+      const errText = await res.text();
+      console.error('Falha ao enviar pedido ao servidor (/api/orders):', res.status, errText);
     }
   } catch (err) {
-    console.warn('Backend API unavailable, stored order locally in browser/BroadcastChannel:', err);
+    console.warn('Backend API indisponível, pedido mantido localmente:', err);
   }
 
   return localNewOrder;

@@ -40,11 +40,67 @@ function getScreenFromUrl(): AppScreen {
   return 'autoatendimento';
 }
 
+function getTableFromUrl(): string {
+  if (typeof window === 'undefined') return '01';
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const m = params.get('mesa') || params.get('table') || params.get('m');
+    if (m) {
+      const num = parseInt(m, 10);
+      return !isNaN(num) && num > 0 ? String(num).padStart(2, '0') : m.trim();
+    }
+    const hash = window.location.hash;
+    const match = hash.match(/(?:mesa|table|m)=(\d+)/i);
+    if (match && match[1]) {
+      return String(parseInt(match[1], 10)).padStart(2, '0');
+    }
+  } catch {
+    // ignore
+  }
+  return '01';
+}
+
+function getInitialOrderTypeFromUrl(): OrderType | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const tipo = params.get('tipo') || params.get('type');
+    if (tipo === 'viagem' || tipo === 'takeaway') return 'viagem';
+    if (tipo === 'local' || params.has('mesa') || params.has('table') || params.has('m')) return 'local';
+    const hash = window.location.hash.toLowerCase();
+    if (hash.includes('viagem')) return 'viagem';
+    if (hash.includes('mesa=') || hash.includes('table=')) return 'local';
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function getInitialStepFromUrl(): KioskStep {
+  if (typeof window === 'undefined') return 'idle';
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (
+      params.has('mesa') ||
+      params.has('table') ||
+      params.has('m') ||
+      params.has('qr') ||
+      params.has('cardapio') ||
+      params.has('menu')
+    ) {
+      return 'menu';
+    }
+  } catch {
+    // ignore
+  }
+  return 'idle';
+}
+
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<AppScreen>(getScreenFromUrl);
-  const [currentStep, setCurrentStep] = useState<KioskStep>('idle');
-  const [orderType, setOrderType] = useState<OrderType | null>(null);
-  const [tableNumber, setTableNumber] = useState<string>('01');
+  const [currentStep, setCurrentStep] = useState<KioskStep>(getInitialStepFromUrl);
+  const [orderType, setOrderType] = useState<OrderType | null>(getInitialOrderTypeFromUrl);
+  const [tableNumber, setTableNumber] = useState<string>(getTableFromUrl);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
   const [isUpSellModalOpen, setIsUpSellModalOpen] = useState<boolean>(false);

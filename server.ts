@@ -239,7 +239,25 @@ function broadcastOrdersUpdate(orders: any[]) {
 async function startServer() {
   const app = express();
   const httpServer = createHttpServer(app);
+
+  // Enable CORS for mobile devices scanning QR codes across hosts/ports
+  app.use((req: Request, res: Response, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
+
   app.use(express.json());
+
+  // Health check endpoint
+  app.get('/api/health', (_req: Request, res: Response) => {
+    res.json({ ok: true, timestamp: Date.now(), sseClients: sseClients.size });
+  });
 
   // SSE Real-Time Stream Endpoint
   app.get('/api/orders/stream', (req: Request, res: Response) => {
@@ -277,7 +295,7 @@ async function startServer() {
     res.json(orders);
   });
 
-  // POST create new order (from Kiosk)
+  // POST create new order (from Kiosk or Mobile QR Code scan)
   app.post('/api/orders', (req: Request, res: Response) => {
     try {
       const {
@@ -293,15 +311,24 @@ async function startServer() {
         paymentStatus,
       } = req.body;
 
-      if (!customerName || !customerName.trim()) {
-        res.status(400).json({ error: 'O nome do cliente é obrigatório.' });
-        return;
-      }
-
       if (!items || !Array.isArray(items) || items.length === 0) {
         res.status(400).json({ error: 'O carrinho não pode estar vazio.' });
         return;
       }
+
+      // Safe name fallback so customer ordering via QR code is NEVER blocked
+      const resolvedName =
+        customerName && typeof customerName === 'string' && customerName.trim().length > 0
+          ? customerName.trim()
+          : (orderType === 'local' ? `Mesa ${tableNumber || '01'}` : 'Cliente Balcão');
+
+      const resolvedTable = orderType === 'local' ? (tableNumber || '01') : undefined;
+      const parsedTotal = typeof total === 'number' && !isNaN(total)
+        ? total
+        : (typeof subtotal === 'number' && !isNaN(subtotal) ? subtotal : 0);
+      const parsedSubtotal = typeof subtotal === 'number' && !isNaN(subtotal)
+        ? subtotal
+        : parsedTotal;
 
       const orderNumber = getNextDailyOrderNumber();
       const now = new Date();
@@ -310,14 +337,14 @@ async function startServer() {
       const newOrder = {
         id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         orderNumber,
-        customerName: customerName.trim(),
+        customerName: resolvedName,
         customerPhone: (customerPhone || '').trim() || undefined,
         orderType: orderType || 'local',
-        tableNumber: orderType === 'local' ? tableNumber || '01' : undefined,
+        tableNumber: resolvedTable,
         items,
         observations: (observations || '').trim(),
-        subtotal: subtotal || total,
-        total,
+        subtotal: parsedSubtotal,
+        total: parsedTotal,
         paymentMethod: paymentMethod || 'balcao',
         paymentStatus: paymentStatus || 'pendente_balcao',
         status: 'recebido', // Todo pedido novo começa como "Recebido"
@@ -330,8 +357,10 @@ async function startServer() {
       const updated = [newOrder, ...orders];
       writeOrdersToFile(updated);
 
-      // Notify all connected screens in real time
+      // Notify all connected screens (Kitchen KDS, TV Panel, Totems) in real time
       broadcastOrdersUpdate(updated);
+
+      console.log(`[Order Created] ${newOrder.orderNumber} for ${newOrder.customerName} (${newOrder.orderType}${newOrder.tableNumber ? ' Mesa ' + newOrder.tableNumber : ''}) - Total: R$ ${newOrder.total}`);
 
       res.status(201).json(newOrder);
     } catch (err: any) {
@@ -420,7 +449,7 @@ async function startServer() {
     app.use(vite.middlewares);
 
     // SPA fallback: transform and serve index.html for all non-API routes on reload
-    app.use('*', async (req: Request, res: Response, next) => {
+    app.use(async (req: Request, res: Response, next) => {
       const url = req.originalUrl;
       if (url.startsWith('/api') || url.startsWith('/images') || url.startsWith('/src/assets')) {
         return next();
@@ -436,7 +465,7 @@ async function startServer() {
   } else {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_req: Request, res: Response) => {
+    app.use((_req: Request, res: Response) => {
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
   }
