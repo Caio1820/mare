@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, Sparkles } from 'lucide-react';
+import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, Sparkles, ArrowLeftRight } from 'lucide-react';
 import { OrderType, AppScreen } from '../types';
 import { playTouchSound } from '../utils/sound';
 
@@ -8,6 +8,7 @@ interface HeaderProps {
   orderType: OrderType | null;
   tableNumber?: string;
   onReset: () => void;
+  onChangeOrderType: () => void;
   activeScreen: AppScreen;
   onNavigateScreen: (screen: AppScreen) => void;
   cartCount: number;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   orderType,
   tableNumber,
   onReset,
+  onChangeOrderType,
   activeScreen,
   onNavigateScreen,
 }) => {
@@ -137,18 +139,33 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Zone 3: Session Context & Reset */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-        {activeScreen === 'autoatendimento' && orderType && (
-          <div className="hidden lg:flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full text-zinc-300 text-xs font-medium">
-            <MapPin className="w-3.5 h-3.5 text-amber-400" />
-            <span>
-              {orderType === 'local'
-                ? tableNumber
-                  ? `Mesa ${tableNumber} · Salão`
-                  : 'No Local'
-                : 'Para Viagem'}
-            </span>
-          </div>
-        )}
+        {activeScreen === 'autoatendimento' &&
+          orderType &&
+          (currentStep === 'menu' || currentStep === 'payment') && (
+            <button
+              type="button"
+              onClick={() => {
+                playTouchSound(500);
+                onChangeOrderType();
+              }}
+              className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 px-2.5 sm:px-3 py-2 rounded-lg sm:rounded-full text-zinc-300 text-xs font-medium transition-colors active:scale-95 min-h-[36px]"
+              title="Alterar tipo de pedido (Comer no Local / Para Viagem)"
+            >
+              <MapPin className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden lg:inline">
+                {orderType === 'local'
+                  ? tableNumber
+                    ? `Mesa ${tableNumber} · Salão`
+                    : 'No Local'
+                  : 'Para Viagem'}
+              </span>
+              <span className="hidden sm:flex items-center gap-1 text-amber-400 font-semibold lg:pl-2 lg:border-l lg:border-zinc-700">
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                Alterar
+              </span>
+              <span className="sr-only sm:hidden">Alterar tipo de pedido</span>
+            </button>
+          )}
 
         {/* Reset button if inside order flow in Kiosk */}
         {activeScreen === 'autoatendimento' && currentStep !== 'idle' && (

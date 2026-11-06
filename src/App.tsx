@@ -97,6 +97,11 @@ export default function App() {
     setCurrentStep('menu');
   };
 
+  const handleChangeOrderType = () => {
+    setIsCartDrawerOpen(false);
+    setCurrentStep('order_type');
+  };
+
   // Step 3 Add To Cart
   const handleAddToCart = (
     product: Product,
@@ -230,6 +235,7 @@ export default function App() {
             orderType={orderType}
             tableNumber={tableNumber}
             onReset={handleResetToIdle}
+            onChangeOrderType={handleChangeOrderType}
             activeScreen={activeScreen}
             onNavigateScreen={handleNavigateScreen}
             cartCount={cartCount}
@@ -243,7 +249,10 @@ export default function App() {
             {currentStep === 'order_type' && (
               <Step2OrderType
                 onSelectType={handleSelectOrderType}
-                onBack={handleResetToIdle}
+                initialType={orderType}
+                initialTable={tableNumber}
+                onBack={orderType ? () => setCurrentStep('menu') : handleResetToIdle}
+                backLabel={orderType ? 'Voltar ao Cardápio' : 'Voltar ao Início'}
               />
             )}
 
