@@ -124,8 +124,16 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
 
         {/* Login Box */}
         <div className="my-auto max-w-md mx-auto w-full bg-zinc-900 border-2 border-zinc-800 rounded-3xl p-8 sm:p-10 shadow-2xl animate-in zoom-in-95 duration-200">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 mb-6">
-            <Lock className="w-8 h-8" />
+          <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-5 p-0.5 bg-zinc-950 rounded-full border-2 border-amber-500/40 overflow-hidden shadow-xl flex items-center justify-center">
+            <img
+              src="/images/mare_round_logo_trans.png"
+              alt="Maré"
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.src = '/images/mare_round_logo.jpg';
+              }}
+            />
           </div>
 
           <div className="text-center mb-6">
@@ -217,8 +225,16 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
       {/* Header with prominent SAIR button */}
       <header className="bg-zinc-900 border-b border-zinc-800 px-4 sm:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-zinc-950 shadow-md">
-            <ChefHat className="w-6 h-6 stroke-[2.5]" />
+          <div className="relative w-10 h-10 rounded-full border-2 border-amber-500/50 p-0.5 bg-zinc-950 overflow-hidden shadow-md flex items-center justify-center shrink-0">
+            <img
+              src="/images/mare_round_logo_trans.png"
+              alt="Maré"
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.src = '/images/mare_round_logo.jpg';
+              }}
+            />
           </div>
           <div>
             <div className="flex items-center gap-2">

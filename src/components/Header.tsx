@@ -32,15 +32,24 @@ export const Header: React.FC<HeaderProps> = ({
           }}
           className="flex items-center gap-1.5 sm:gap-2.5 text-left focus:outline-none group"
         >
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/20 text-zinc-950 font-black text-lg sm:text-xl tracking-tighter">
-            M
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-zinc-950 border border-amber-500/50 p-0.5 flex items-center justify-center shadow-lg shadow-amber-500/15 overflow-hidden shrink-0 group-hover:border-amber-400 group-hover:scale-105 transition-all">
+            <img
+              src="/images/mare_round_logo_trans.png"
+              alt="Maré"
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.src = '/images/mare_round_logo.jpg';
+              }}
+            />
           </div>
           <div className="leading-tight">
-            <span className="font-display text-lg sm:text-xl tracking-wider uppercase font-bold text-zinc-100 group-hover:text-amber-400 transition-colors">
+            <span className="font-display text-lg sm:text-xl tracking-wider uppercase font-bold text-zinc-100 group-hover:text-amber-400 transition-colors flex items-center gap-1">
               Maré
+              <span className="text-amber-500 text-[10px] font-mono font-bold">2026</span>
             </span>
-            <span className="text-zinc-500 text-[10px] sm:text-xs font-semibold uppercase tracking-widest hidden xs:block">
-              Hambúrgueria
+            <span className="text-zinc-500 text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest hidden xs:block">
+              Uma Onda de Sabores
             </span>
           </div>
         </button>

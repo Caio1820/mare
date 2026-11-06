@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Utensils, Flame, ChevronRight, Clock, Award } from 'lucide-react';
+import { Sparkles, Utensils, Flame, ChevronRight, Clock, Award, MapPin } from 'lucide-react';
 import { playTouchSound } from '../utils/sound';
 
 interface Step1IdleProps {
@@ -20,67 +20,71 @@ export const Step1Idle: React.FC<Step1IdleProps> = ({ onStart }) => {
       {/* Background Hero Image with Dark Gradient Scrim */}
       <div className="absolute inset-0 z-0">
         <img
-          src="/images/hero_burger.jpg"
+          src="/images/classico_casa.jpg"
           onError={(e) => {
             const target = e.currentTarget;
             if (!target.dataset.fallback) {
               target.dataset.fallback = 'true';
-              target.src = '/src/assets/images/hero_idle_burger_1793068213371.jpg';
+              target.src = '/images/hero_burger.jpg';
             }
           }}
           alt="Hambúrguer Artesanal Maré"
-          className="w-full h-full object-cover object-center scale-105 transition-transform duration-1000 ease-out"
+          className="w-full h-full object-cover object-center scale-105 filter brightness-75 transition-transform duration-1000 ease-out"
         />
         {/* Cinematic dark scrim overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/75 to-zinc-950/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-zinc-950/60" />
         <div className="absolute inset-0 bg-radial-at-c from-transparent via-zinc-950/40 to-zinc-950/90" />
       </div>
 
-      {/* Top Banner / Quality Badges */}
-      <div className="relative z-10 pt-4 sm:pt-8 px-4 sm:px-6 flex flex-wrap items-center justify-center sm:justify-between gap-2 sm:gap-4 max-w-6xl mx-auto w-full">
-        <div className="flex items-center gap-2 bg-zinc-900/80 backdrop-blur-md border border-zinc-800/80 px-3 py-1.5 rounded-full text-zinc-300 text-xs sm:text-sm font-medium">
-          <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
-          <span>Melhor Hambúrguer do Litoral</span>
+      {/* Top Banner / Location & Schedule Badges */}
+      <div className="relative z-10 pt-3 sm:pt-6 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-2 max-w-6xl mx-auto w-full">
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-zinc-900/85 backdrop-blur-md border border-amber-500/30 px-3 py-1 rounded-full text-amber-300 text-[11px] sm:text-xs font-bold uppercase tracking-wider shadow">
+          <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span>Edição Especial · Cardápio 2026</span>
         </div>
 
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-zinc-400 bg-zinc-950/60 backdrop-blur-md px-3 py-1 rounded-full border border-zinc-800">
-          <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>Na Brasa · ~15 Minutos</span>
+        <div className="flex items-center gap-2 text-[10px] sm:text-xs text-zinc-300 bg-zinc-950/80 backdrop-blur-md px-3 py-1 rounded-full border border-zinc-800">
+          <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span>Parque Tecnológico · Beira-Rio · Macapá / AP</span>
         </div>
       </div>
 
       {/* Central Brand & Attraction Centerpiece */}
-      <div className="relative z-10 flex flex-col items-center text-center px-4 sm:px-6 my-auto py-6 max-w-3xl mx-auto">
-        {/* Maré Emblem */}
-        <div className="w-14 h-14 sm:w-24 sm:h-24 mb-3 sm:mb-6 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-amber-600 via-amber-500 to-amber-300 p-0.5 shadow-2xl shadow-amber-500/30 flex items-center justify-center animate-pulse">
-          <div className="w-full h-full bg-zinc-950 rounded-[14px] sm:rounded-[22px] flex flex-col items-center justify-center p-1.5 sm:p-2">
-            <span className="font-display text-2xl sm:text-5xl font-black text-amber-400 tracking-tighter">
-              M
-            </span>
-            <span className="text-[8px] sm:text-[10px] uppercase font-bold text-zinc-400 tracking-widest sm:-mt-1">
-              MARÉ
-            </span>
+      <div className="relative z-10 flex flex-col items-center text-center px-4 sm:px-6 my-auto py-4 sm:py-6 max-w-3xl mx-auto">
+        {/* Official Maré Round Gold Logo */}
+        <div className="mb-4 sm:mb-6 w-36 h-36 sm:w-56 sm:h-56 relative group mx-auto">
+          <div className="relative w-full h-full rounded-full border-2 border-amber-500/60 shadow-2xl shadow-amber-500/30 bg-zinc-950/40 backdrop-blur-md p-1 transition-transform duration-300 group-hover:scale-105">
+            <img
+              src="/images/mare_round_logo_trans.png"
+              alt="Maré - Uma Onda de Sabores"
+              className="w-full h-full object-cover rounded-full drop-shadow-2xl"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.src = '/images/mare_round_logo.jpg';
+              }}
+            />
           </div>
         </div>
 
-        {/* Title */}
-        <h1 className="font-display text-4xl sm:text-7xl lg:text-8xl font-black text-zinc-100 tracking-wide uppercase leading-none drop-shadow-md">
-          Maré <span className="text-amber-500">·</span> Hambúrgueria
-        </h1>
-
-        <p className="mt-2.5 sm:mt-4 text-xs sm:text-lg text-zinc-300 max-w-xl font-normal leading-relaxed drop-shadow px-2">
-          A verdadeira onda do hambúrguer artesanal na brasa com pão brioche e queijo fundido.
-        </p>
+        {/* Tagline from the official menu */}
+        <div className="space-y-1 sm:space-y-1.5 max-w-xl mx-auto">
+          <h2 className="font-display text-xl sm:text-3xl font-extrabold uppercase text-amber-400 tracking-wider drop-shadow-md">
+            Sabores que Ficam na Memória
+          </h2>
+          <p className="text-xs sm:text-base text-zinc-300 font-medium italic drop-shadow">
+            &ldquo;A maré vem e vai. O sabor fica.&rdquo;
+          </p>
+        </div>
 
         {/* Glowing Touch Button (optimizado para celular) */}
-        <div className="mt-6 sm:mt-10 group w-full max-w-md px-2">
+        <div className="mt-5 sm:mt-8 group w-full max-w-md px-2">
           <div className="relative w-full inline-flex items-center justify-center">
             {/* Outer animated halo ring */}
             <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-red-500 opacity-75 blur-lg group-hover:opacity-100 animate-pulse transition duration-1000 group-hover:duration-200" />
 
             <button
               onClick={handleTouch}
-              className="relative w-full px-5 sm:px-12 py-4 sm:py-6 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-base sm:text-2xl uppercase tracking-wider rounded-2xl shadow-2xl flex items-center justify-center gap-2 sm:gap-3 active:scale-95 transition-all duration-150 min-h-[54px]"
+              className="relative w-full px-5 sm:px-12 py-3.5 sm:py-5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-black text-base sm:text-2xl uppercase tracking-wider rounded-2xl shadow-2xl flex items-center justify-center gap-2 sm:gap-3 active:scale-95 transition-all duration-150 min-h-[52px]"
             >
               <span className="text-center leading-tight">Toque para Iniciar seu Pedido</span>
               <span className="text-xl sm:text-2xl shrink-0">🍔✨</span>
@@ -89,25 +93,33 @@ export const Step1Idle: React.FC<Step1IdleProps> = ({ onStart }) => {
           </div>
         </div>
 
-        <p className="mt-3 text-[11px] sm:text-sm text-zinc-400 font-medium">
-          Autoatendimento touch rápido, prático e sem filas
+        <p className="mt-2.5 text-[11px] sm:text-xs text-zinc-400 font-medium">
+          Todos os dias | 17h às 23h | @hamburgueriamaremcp
         </p>
       </div>
 
-      {/* Bottom Highlights Strip */}
-      <div className="relative z-10 w-full border-t border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md py-3 px-4 sm:px-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-3 gap-2 sm:gap-6 text-center">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-zinc-300">
-            <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
-            <span className="text-[10px] sm:text-sm font-semibold leading-tight">100% Blend Bovino</span>
+      {/* Bottom Highlights Strip (5 Etapas da Maré) */}
+      <div className="relative z-10 w-full border-t border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md py-2.5 px-3 sm:px-6">
+        <div className="max-w-5xl mx-auto grid grid-cols-3 sm:grid-cols-5 gap-2 text-center text-zinc-300">
+          <div className="flex flex-col items-center justify-center gap-0.5">
+            <span className="text-[9px] uppercase font-bold text-amber-500">1ª Onda</span>
+            <span className="text-[11px] sm:text-xs font-semibold">Porções & Fritas</span>
           </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-zinc-300 border-x border-zinc-800 px-1 sm:px-2">
-            <Utensils className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
-            <span className="text-[10px] sm:text-sm font-semibold leading-tight">Queijo & Molho Artesanal</span>
+          <div className="flex flex-col items-center justify-center gap-0.5">
+            <span className="text-[9px] uppercase font-bold text-amber-500">2ª Alto-Mar</span>
+            <span className="text-[11px] sm:text-xs font-semibold">Artesanais 160g</span>
           </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-zinc-300">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
-            <span className="text-[10px] sm:text-sm font-semibold leading-tight">Pix ou Cartão</span>
+          <div className="flex flex-col items-center justify-center gap-0.5">
+            <span className="text-[9px] uppercase font-bold text-amber-500">3ª Maré Nobre</span>
+            <span className="text-[11px] sm:text-xs font-semibold">Linha Premium</span>
+          </div>
+          <div className="hidden sm:flex flex-col items-center justify-center gap-0.5">
+            <span className="text-[9px] uppercase font-bold text-amber-500">4ª Maré Alta</span>
+            <span className="text-[11px] sm:text-xs font-semibold">Combos Pororoca</span>
+          </div>
+          <div className="hidden sm:flex flex-col items-center justify-center gap-0.5">
+            <span className="text-[9px] uppercase font-bold text-amber-500">5ª Onda Smash</span>
+            <span className="text-[11px] sm:text-xs font-semibold">Smash na Chapa</span>
           </div>
         </div>
       </div>

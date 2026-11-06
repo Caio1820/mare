@@ -102,16 +102,24 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-zinc-950 font-black text-lg sm:text-2xl shadow-lg shadow-amber-500/20 shrink-0">
-              M
+          <div className="flex items-center gap-2.5 sm:gap-4">
+            <div className="w-10 h-10 sm:w-13 sm:h-13 rounded-full bg-zinc-950 border-2 border-amber-500/50 p-0.5 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0 overflow-hidden">
+              <img
+                src="/images/mare_round_logo_trans.png"
+                alt="Maré"
+                className="w-full h-full object-cover rounded-full"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.src = '/images/mare_round_logo.jpg';
+                }}
+              />
             </div>
             <div>
               <span className="font-display text-lg sm:text-3xl font-extrabold uppercase tracking-wider text-zinc-100 block leading-tight">
                 Maré <span className="text-amber-500">·</span> Hambúrgueria
               </span>
               <span className="text-zinc-500 text-[10px] sm:text-xs font-semibold uppercase tracking-widest block">
-                Painel Oficial de Chamada
+                Uma Onda de Sabores · Painel de Chamada
               </span>
             </div>
           </div>
