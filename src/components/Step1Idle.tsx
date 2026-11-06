@@ -98,28 +98,36 @@ export const Step1Idle: React.FC<Step1IdleProps> = ({ onStart }) => {
         </p>
       </div>
 
-      {/* Bottom Highlights Strip (5 Etapas da Maré) */}
+      {/* Bottom Highlights Strip (Cardápio 2026 Maré) */}
       <div className="relative z-10 w-full border-t border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md py-2.5 px-3 sm:px-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-3 sm:grid-cols-5 gap-2 text-center text-zinc-300">
+        <div className="max-w-6xl mx-auto grid grid-cols-3 sm:grid-cols-7 gap-1.5 sm:gap-2 text-center text-zinc-300">
           <div className="flex flex-col items-center justify-center gap-0.5">
             <span className="text-[9px] uppercase font-bold text-amber-500">1ª Onda</span>
-            <span className="text-[11px] sm:text-xs font-semibold">Porções & Fritas</span>
+            <span className="text-[11px] sm:text-xs font-semibold truncate">Porções & Fritas</span>
           </div>
           <div className="flex flex-col items-center justify-center gap-0.5">
-            <span className="text-[9px] uppercase font-bold text-amber-500">2ª Alto-Mar</span>
-            <span className="text-[11px] sm:text-xs font-semibold">Artesanais 160g</span>
+            <span className="text-[9px] uppercase font-bold text-amber-500">Alto-Mar</span>
+            <span className="text-[11px] sm:text-xs font-semibold truncate">Artesanais 160g</span>
           </div>
           <div className="flex flex-col items-center justify-center gap-0.5">
-            <span className="text-[9px] uppercase font-bold text-amber-500">3ª Maré Nobre</span>
-            <span className="text-[11px] sm:text-xs font-semibold">Linha Premium</span>
+            <span className="text-[9px] uppercase font-bold text-amber-500">Onda Smash</span>
+            <span className="text-[11px] sm:text-xs font-semibold truncate">Smash Burgers</span>
           </div>
           <div className="hidden sm:flex flex-col items-center justify-center gap-0.5">
-            <span className="text-[9px] uppercase font-bold text-amber-500">4ª Maré Alta</span>
-            <span className="text-[11px] sm:text-xs font-semibold">Combos Pororoca</span>
+            <span className="text-[9px] uppercase font-bold text-amber-500">Maré Nobre</span>
+            <span className="text-[11px] sm:text-xs font-semibold truncate">Burgers Premium</span>
           </div>
           <div className="hidden sm:flex flex-col items-center justify-center gap-0.5">
-            <span className="text-[9px] uppercase font-bold text-amber-500">5ª Onda Smash</span>
-            <span className="text-[11px] sm:text-xs font-semibold">Smash na Chapa</span>
+            <span className="text-[9px] uppercase font-bold text-amber-500">Maré Alta</span>
+            <span className="text-[11px] sm:text-xs font-semibold truncate">Combos Pororoca</span>
+          </div>
+          <div className="hidden sm:flex flex-col items-center justify-center gap-0.5">
+            <span className="text-[9px] uppercase font-bold text-amber-500">Além Burgers</span>
+            <span className="text-[11px] sm:text-xs font-semibold truncate">Petiscos & Tiras</span>
+          </div>
+          <div className="hidden sm:flex flex-col items-center justify-center gap-0.5">
+            <span className="text-[9px] uppercase font-bold text-cyan-400">Brisa do Mar</span>
+            <span className="text-[11px] sm:text-xs font-semibold truncate">Sucos & Bebidas</span>
           </div>
         </div>
       </div>

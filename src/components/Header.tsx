@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, Sparkles, ArrowLeftRight } from 'lucide-react';
+import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, Sparkles } from 'lucide-react';
 import { OrderType, AppScreen } from '../types';
 import { playTouchSound } from '../utils/sound';
 
@@ -8,10 +8,10 @@ interface HeaderProps {
   orderType: OrderType | null;
   tableNumber?: string;
   onReset: () => void;
-  onChangeOrderType: () => void;
   activeScreen: AppScreen;
   onNavigateScreen: (screen: AppScreen) => void;
   cartCount: number;
+  onChangeOrderType?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,9 +19,9 @@ export const Header: React.FC<HeaderProps> = ({
   orderType,
   tableNumber,
   onReset,
-  onChangeOrderType,
   activeScreen,
   onNavigateScreen,
+  onChangeOrderType,
 }) => {
   return (
     <header className="relative z-30 w-full bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 px-2.5 sm:px-6 md:px-8 py-2 sm:py-3.5 flex items-center justify-between gap-1.5 sm:gap-4 overflow-x-hidden">
@@ -139,33 +139,28 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Zone 3: Session Context & Reset */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-        {activeScreen === 'autoatendimento' &&
-          orderType &&
-          (currentStep === 'menu' || currentStep === 'payment') && (
-            <button
-              type="button"
-              onClick={() => {
-                playTouchSound(500);
-                onChangeOrderType();
-              }}
-              className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 px-2.5 sm:px-3 py-2 rounded-lg sm:rounded-full text-zinc-300 text-xs font-medium transition-colors active:scale-95 min-h-[36px]"
-              title="Alterar tipo de pedido (Comer no Local / Para Viagem)"
-            >
-              <MapPin className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden lg:inline">
-                {orderType === 'local'
-                  ? tableNumber
-                    ? `Mesa ${tableNumber} · Salão`
-                    : 'No Local'
-                  : 'Para Viagem'}
-              </span>
-              <span className="hidden sm:flex items-center gap-1 text-amber-400 font-semibold lg:pl-2 lg:border-l lg:border-zinc-700">
-                <ArrowLeftRight className="w-3.5 h-3.5" />
-                Alterar
-              </span>
-              <span className="sr-only sm:hidden">Alterar tipo de pedido</span>
-            </button>
-          )}
+        {activeScreen === 'autoatendimento' && orderType && currentStep !== 'idle' && (
+          <button
+            onClick={() => {
+              playTouchSound(520);
+              if (onChangeOrderType) onChangeOrderType();
+            }}
+            className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/60 px-2 sm:px-3 py-1.5 rounded-full text-zinc-200 text-[11px] sm:text-xs font-semibold transition-all active:scale-95 group shadow-sm min-h-[36px]"
+            title="Toque para alterar entre Comer no Local ou Para Viagem"
+          >
+            <MapPin className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+            <span className="truncate max-w-[100px] xs:max-w-none">
+              {orderType === 'local'
+                ? tableNumber
+                  ? `Mesa ${tableNumber} · Salão`
+                  : 'No Local'
+                : 'Para Viagem'}
+            </span>
+            <span className="text-[10px] text-amber-400 underline font-normal hidden sm:inline ml-0.5">
+              Alterar
+            </span>
+          </button>
+        )}
 
         {/* Reset button if inside order flow in Kiosk */}
         {activeScreen === 'autoatendimento' && currentStep !== 'idle' && (

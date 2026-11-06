@@ -1,4 +1,4 @@
-import { Order, OrderStatus } from '../types';
+import { Order, OrderStatus, PaymentMethod } from '../types';
 import { playKitchenBell } from './sound';
 
 const STORAGE_KEY = 'mare_orders_v2';
@@ -336,8 +336,8 @@ export async function createOrder(orderPayload: {
   observations?: string;
   subtotal: number;
   total: number;
-  paymentMethod: 'pix' | 'cartao_balcao' | 'dinheiro_balcao';
-  paymentStatus: 'pago' | 'pendente_balcao';
+  paymentMethod: PaymentMethod;
+  paymentStatus: Order['paymentStatus'];
 }): Promise<Order> {
   const current = readFromStorage();
   const nextNum = current.length + 1;

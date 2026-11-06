@@ -97,11 +97,6 @@ export default function App() {
     setCurrentStep('menu');
   };
 
-  const handleChangeOrderType = () => {
-    setIsCartDrawerOpen(false);
-    setCurrentStep('order_type');
-  };
-
   // Step 3 Add To Cart
   const handleAddToCart = (
     product: Product,
@@ -157,38 +152,33 @@ export default function App() {
     setCartItems((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
   };
 
-  // Proceed to Step 5 Payment (with Up-sell Strategic Intercept)
+  // Proceed to Checkout: Opens Cart Drawer directly for review and counter confirmation
   const handleProceedToPayment = () => {
     if (cartItems.length === 0) return;
-    setIsCartDrawerOpen(false);
-    if (!hasDismissedUpSell) {
-      setIsUpSellModalOpen(true);
-    } else {
-      setCurrentStep('payment');
-    }
+    setIsCartDrawerOpen(true);
   };
 
   const handleDismissUpSellAndPay = () => {
     setIsUpSellModalOpen(false);
     setHasDismissedUpSell(true);
-    setCurrentStep('payment');
+    setIsCartDrawerOpen(true);
   };
 
   const handleAddUpSellItem = (product: Product) => {
     handleAddToCart(product, 1);
   };
 
-  // Step 5 -> Step 6 (Order Confirmed & Sent to KDS & Database)
+  // Order Confirmed & Sent to KDS & Database with Counter Payment
   const handleConfirmPayment = async (
-    method: PaymentMethod,
-    isPaidImmediately: boolean,
-    customerName: string,
-    observations: string,
+    method: PaymentMethod = 'balcao',
+    isPaidImmediately: boolean = false,
+    customerName: string = 'Cliente Balcão',
+    observations: string = '',
     customerPhone?: string
   ) => {
     try {
       const savedOrder = await createOrder({
-        customerName: customerName.trim(),
+        customerName: customerName.trim() || 'Cliente Balcão',
         customerPhone: customerPhone ? customerPhone.trim() : undefined,
         orderType: orderType || 'local',
         tableNumber: orderType === 'local' ? tableNumber : undefined,
@@ -196,8 +186,8 @@ export default function App() {
         observations: observations.trim(),
         subtotal: cartTotal,
         total: cartTotal,
-        paymentMethod: method,
-        paymentStatus: isPaidImmediately ? 'pago' : 'pendente_balcao',
+        paymentMethod: 'balcao',
+        paymentStatus: 'pendente_balcao',
       });
 
       setLastConfirmedOrder(savedOrder);
@@ -219,6 +209,11 @@ export default function App() {
     setLastConfirmedOrder(null);
   }, []);
 
+  // Handler to return to order type selection ("Comer no local" / "Para viagem")
+  const handleChangeOrderType = () => {
+    setCurrentStep('order_type');
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-amber-500 selection:text-zinc-950">
       {/* 1. TV CALL PANEL SCREEN (fullscreen, no header) */}
@@ -228,17 +223,17 @@ export default function App() {
         /* 2. KITCHEN KDS SCREEN (protected by password) */
         <KdsView onBackToKiosk={() => handleNavigateScreen('autoatendimento')} />
       ) : (
-        /* 4. AUTOATENDIMENTO (KIOSK) SCREEN */
+        /* 3. AUTOATENDIMENTO (KIOSK) SCREEN */
         <>
           <Header
             currentStep={currentStep}
             orderType={orderType}
             tableNumber={tableNumber}
             onReset={handleResetToIdle}
-            onChangeOrderType={handleChangeOrderType}
             activeScreen={activeScreen}
             onNavigateScreen={handleNavigateScreen}
             cartCount={cartCount}
+            onChangeOrderType={handleChangeOrderType}
           />
 
           <main className="flex-1 flex flex-col">
@@ -249,10 +244,16 @@ export default function App() {
             {currentStep === 'order_type' && (
               <Step2OrderType
                 onSelectType={handleSelectOrderType}
+                onBack={() => {
+                  if (cartItems.length > 0) {
+                    setCurrentStep('menu');
+                  } else {
+                    handleResetToIdle();
+                  }
+                }}
                 initialType={orderType}
                 initialTable={tableNumber}
-                onBack={orderType ? () => setCurrentStep('menu') : handleResetToIdle}
-                backLabel={orderType ? 'Voltar ao Cardápio' : 'Voltar ao Início'}
+                hasCartItems={cartItems.length > 0}
               />
             )}
 
@@ -264,6 +265,9 @@ export default function App() {
                 cartTotal={cartTotal}
                 onProceedToPayment={handleProceedToPayment}
                 onOpenCartModal={() => setIsCartDrawerOpen(true)}
+                orderType={orderType}
+                tableNumber={tableNumber}
+                onChangeOrderType={handleChangeOrderType}
               />
             )}
 
@@ -276,6 +280,7 @@ export default function App() {
                 cartTotal={cartTotal}
                 onBack={() => setCurrentStep('menu')}
                 onConfirmPayment={handleConfirmPayment}
+                onChangeOrderType={handleChangeOrderType}
               />
             )}
 
@@ -287,7 +292,7 @@ export default function App() {
               />
             )}
 
-            {/* Step 4: Cart Drawer modal */}
+            {/* Step 4: Cart Drawer modal with Order Type & Counter Checkout */}
             <CartDrawer
               isOpen={isCartDrawerOpen}
               onClose={() => setIsCartDrawerOpen(false)}
@@ -295,7 +300,13 @@ export default function App() {
               cartTotal={cartTotal}
               onUpdateQuantity={handleUpdateQuantity}
               onRemoveItem={handleRemoveItem}
-              onProceedToPayment={handleProceedToPayment}
+              orderType={orderType}
+              tableNumber={tableNumber}
+              onSelectOrderType={handleSelectOrderType}
+              onNavigateToOrderTypeScreen={handleChangeOrderType}
+              onConfirmOrderAtCounter={(name, obs) =>
+                handleConfirmPayment('balcao', false, name, obs)
+              }
             />
 
             {/* Strategic Up-Sell Modal */}

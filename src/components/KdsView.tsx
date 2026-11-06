@@ -713,8 +713,21 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
         </div>
       )}
 
-      {/* Bottom Communication Tools: WhatsApp link & Action Button */}
+      {/* Bottom Communication Tools: Print Ticket, WhatsApp link & Stage Action Button */}
       <div className="space-y-2 pt-2 border-t border-zinc-850">
+        {/* Dedicated Kitchen Staff Print Button */}
+        <button
+          onClick={() => {
+            playTouchSound(550);
+            onPrint();
+          }}
+          className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-amber-300 border border-zinc-700 hover:border-amber-500/50 text-xs font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm"
+          title="Imprimir comanda térmica do pedido (80mm)"
+        >
+          <Printer className="w-4 h-4 text-amber-400" />
+          <span>Imprimir Comanda (80mm)</span>
+        </button>
+
         {isReady && (
           <a
             href={whatsappUrl}

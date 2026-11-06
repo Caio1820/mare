@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Flame, Waves, ShieldCheck, Layers, Zap, ShoppingCart, Sparkles } from 'lucide-react';
-import { CategoryId, Product, CustomizationSelection, CartItem } from '../types';
+import { Search, Flame, Waves, ShieldCheck, Layers, Zap, ShoppingCart, Sparkles, Utensils, GlassWater } from 'lucide-react';
+import { CategoryId, Product, CustomizationSelection, CartItem, OrderType } from '../types';
 import { CATEGORIES_CONFIG, PRODUCTS } from '../data/products';
 import { ProductCard } from './ProductCard';
 import { CustomizationModal } from './CustomizationModal';
@@ -12,6 +12,9 @@ interface Step3CatalogProps {
   cartTotal: number;
   onProceedToPayment: () => void;
   onOpenCartModal: () => void;
+  orderType?: OrderType | null;
+  tableNumber?: string;
+  onChangeOrderType?: () => void;
 }
 
 export const Step3Catalog: React.FC<Step3CatalogProps> = ({
@@ -20,17 +23,22 @@ export const Step3Catalog: React.FC<Step3CatalogProps> = ({
   cartTotal,
   onProceedToPayment,
   onOpenCartModal,
+  orderType,
+  tableNumber,
+  onChangeOrderType,
 }) => {
   const [activeCategory, setActiveCategory] = useState<CategoryId>('artesanais');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [customizingProduct, setCustomizingProduct] = useState<Product | null>(null);
 
   const categoryIcons: Record<CategoryId, React.ReactNode> = {
-    entradas: <Waves className="w-5 h-5" />,
+    entradas: <Waves className="w-5 h-5 text-amber-400" />,
     artesanais: <Flame className="w-5 h-5 text-amber-500" />,
+    smash: <Zap className="w-5 h-5 text-amber-500" />,
     prime: <ShieldCheck className="w-5 h-5 text-amber-400" />,
     combos: <Layers className="w-5 h-5 text-red-400" />,
-    smash: <Zap className="w-5 h-5 text-amber-500" />,
+    petiscos: <Utensils className="w-5 h-5 text-orange-400" />,
+    bebidas: <GlassWater className="w-5 h-5 text-cyan-400" />,
   };
 
   const filteredProducts = useMemo(() => {
@@ -115,6 +123,49 @@ export const Step3Catalog: React.FC<Step3CatalogProps> = ({
         </div>
       </div>
 
+      {/* Order Type Status Bar with Direct Switcher & Return Option */}
+      {orderType && (
+        <div className="bg-zinc-900/90 border-b border-zinc-800 px-3 sm:px-6 md:px-8 py-2.5">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider hidden sm:inline">
+                Modalidade:
+              </span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-zinc-950 border border-amber-500/30 text-amber-400 font-bold text-xs shadow-sm">
+                {orderType === 'local' ? (
+                  <>
+                    <span>🍽️ Comer no Local</span>
+                    <span className="text-zinc-600">·</span>
+                    <span className="text-zinc-100 font-mono">Mesa {tableNumber || '01'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🛍️ Pedir para Levar (Viagem)</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2">
+              {onChangeOrderType && (
+                <button
+                  onClick={() => {
+                    playTouchSound(520);
+                    onChangeOrderType();
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 border border-zinc-700"
+                  title="Trocar modalidade ou mesa"
+                >
+                  <span>↺</span>
+                  <span>Voltar para Local / Viagem</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Catalog Main Content */}
       <div className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 md:px-8 py-4 sm:py-6">
         {/* Active Stage Header Information */}
@@ -136,6 +187,8 @@ export const Step3Catalog: React.FC<Step3CatalogProps> = ({
             </div>
           </div>
         )}
+
+
 
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-5">
@@ -208,9 +261,9 @@ export const Step3Catalog: React.FC<Step3CatalogProps> = ({
                   playTouchSound(680);
                   onProceedToPayment();
                 }}
-                className="py-3 sm:py-4 px-4 sm:px-8 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-xs sm:text-lg uppercase tracking-wider shadow-xl shadow-amber-500/20 active:scale-95 transition-all min-h-[46px] sm:min-h-[52px] flex items-center gap-1.5 sm:gap-2"
+                className="py-3 sm:py-4 px-4 sm:px-8 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-display font-extrabold text-xs sm:text-base uppercase tracking-wider shadow-xl shadow-amber-500/20 active:scale-95 transition-all min-h-[46px] sm:min-h-[52px] flex items-center gap-1.5 sm:gap-2"
               >
-                <span>Avançar</span>
+                <span>Finalizar no Balcão</span>
                 <span className="text-base sm:text-xl">→</span>
               </button>
             </div>

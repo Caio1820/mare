@@ -102,8 +102,14 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
           {order.customerName}
         </div>
 
+        {/* Counter Payment Callout Banner */}
+        <div className="mt-3 sm:mt-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-500/20 border-2 border-amber-400 text-amber-200 font-bold text-sm sm:text-base leading-snug flex items-center justify-center gap-2 shadow-lg">
+          <span className="text-xl">💳</span>
+          <span>PAGAMENTO NO BALCÃO: Dirija-se ao caixa com a sua senha para efetuar o pagamento.</span>
+        </div>
+
         {/* Required Message Banner */}
-        <div className="mt-3 sm:mt-5 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-zinc-950/80 border border-amber-500/30 text-amber-300 font-semibold text-sm sm:text-lg leading-snug">
+        <div className="mt-2.5 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-zinc-950/80 border border-amber-500/30 text-amber-300 font-semibold text-xs sm:text-sm leading-snug">
           "Acompanhe o painel, vamos chamar você quando estiver pronto."
         </div>
 

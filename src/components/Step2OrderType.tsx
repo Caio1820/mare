@@ -6,17 +6,17 @@ import { playTouchSound } from '../utils/sound';
 interface Step2OrderTypeProps {
   onSelectType: (type: OrderType, tableNumber?: string) => void;
   onBack: () => void;
-  backLabel?: string;
   initialType?: OrderType | null;
   initialTable?: string;
+  hasCartItems?: boolean;
 }
 
 export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
   onSelectType,
   onBack,
-  backLabel = 'Voltar ao Início',
   initialType = null,
   initialTable = '01',
+  hasCartItems = false,
 }) => {
   const [selectedType, setSelectedType] = useState<OrderType | null>(initialType);
   const [tableNumber, setTableNumber] = useState<string>(initialTable);
@@ -53,11 +53,11 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
           className="flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 font-semibold text-xs sm:text-sm hover:bg-zinc-800 hover:text-white active:scale-95 transition-all min-h-[44px]"
         >
           <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
-          <span>{backLabel}</span>
+          <span>{hasCartItems ? 'Voltar ao Cardápio (Manter Itens)' : 'Voltar ao Início'}</span>
         </button>
 
         <div className="text-zinc-500 text-[10px] sm:text-xs font-semibold uppercase tracking-widest">
-          Etapa 1 de 4 · Identificação
+          {hasCartItems ? 'Alterando Tipo de Pedido' : 'Etapa 1 de 4 · Identificação'}
         </div>
       </div>
 

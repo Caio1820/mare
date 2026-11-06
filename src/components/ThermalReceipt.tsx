@@ -85,7 +85,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         <div className="flex justify-between">
           <span className="text-zinc-600">PAGAMENTO:</span>
           <span className="font-bold uppercase text-black">
-            {order.paymentMethod === 'pix'
+            {order.paymentMethod === 'balcao'
+              ? 'PAGAR NO BALCÃO'
+              : order.paymentMethod === 'pix'
               ? 'PIX INSTANTÂNEO'
               : order.paymentMethod === 'cartao_balcao'
               ? 'CARTÃO NO BALCÃO'
@@ -207,7 +209,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       </div>
 
       <div className="text-center text-[8px] text-zinc-400 pt-2 border-t border-dashed border-zinc-300">
-        Sistema Maré KDS & Autoatendimento 3D
+        Sistema Maré KDS & Autoatendimento
       </div>
     </div>
   );

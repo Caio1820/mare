@@ -318,8 +318,8 @@ async function startServer() {
         observations: (observations || '').trim(),
         subtotal: subtotal || total,
         total,
-        paymentMethod: paymentMethod || 'pix',
-        paymentStatus: paymentStatus || 'pago',
+        paymentMethod: paymentMethod || 'balcao',
+        paymentStatus: paymentStatus || 'pendente_balcao',
         status: 'recebido', // Todo pedido novo começa como "Recebido"
         createdAt: Date.now(),
         formattedTime,

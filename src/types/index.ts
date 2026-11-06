@@ -1,4 +1,4 @@
-export type CategoryId = 'entradas' | 'artesanais' | 'prime' | 'combos' | 'smash';
+export type CategoryId = 'entradas' | 'artesanais' | 'smash' | 'prime' | 'combos' | 'petiscos' | 'bebidas';
 
 export interface Product {
   id: string;
@@ -59,7 +59,7 @@ export interface CartItem {
 
 export type OrderType = 'local' | 'viagem';
 
-export type PaymentMethod = 'pix' | 'cartao_balcao' | 'dinheiro_balcao';
+export type PaymentMethod = 'balcao' | 'pix' | 'cartao_balcao' | 'dinheiro_balcao';
 
 export type OrderStatus = 'recebido' | 'preparo' | 'pronto' | 'entregue';
 
@@ -75,7 +75,7 @@ export interface Order {
   subtotal: number;
   total: number;
   paymentMethod: PaymentMethod;
-  paymentStatus: 'pago' | 'pendente_balcao';
+  paymentStatus: 'pago' | 'pendente_balcao' | 'pendente';
   status: OrderStatus;
   createdAt: number;
   formattedTime?: string; // e.g. "14:32"
