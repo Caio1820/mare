@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { createServer as createViteServer } from 'vite';
 import fs from 'fs';
+import { createServer as createHttpServer } from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -237,6 +238,7 @@ function broadcastOrdersUpdate(orders: any[]) {
 
 async function startServer() {
   const app = express();
+  const httpServer = createHttpServer(app);
   app.use(express.json());
 
   // SSE Real-Time Stream Endpoint
@@ -407,8 +409,12 @@ async function startServer() {
   // Vite development middleware
   const isProd = process.env.NODE_ENV === 'production';
   if (!isProd) {
+    // Share the app's HTTP server so the HMR WebSocket is reachable through the same port/proxy.
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -435,7 +441,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`> Maré PDV Server running on http://0.0.0.0:${PORT}`);
   });
 }

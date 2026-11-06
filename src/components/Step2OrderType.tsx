@@ -6,11 +6,20 @@ import { playTouchSound } from '../utils/sound';
 interface Step2OrderTypeProps {
   onSelectType: (type: OrderType, tableNumber?: string) => void;
   onBack: () => void;
+  backLabel?: string;
+  initialType?: OrderType | null;
+  initialTable?: string;
 }
 
-export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({ onSelectType, onBack }) => {
-  const [selectedType, setSelectedType] = useState<OrderType | null>(null);
-  const [tableNumber, setTableNumber] = useState<string>('01');
+export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
+  onSelectType,
+  onBack,
+  backLabel = 'Voltar ao Início',
+  initialType = null,
+  initialTable = '01',
+}) => {
+  const [selectedType, setSelectedType] = useState<OrderType | null>(initialType);
+  const [tableNumber, setTableNumber] = useState<string>(initialTable);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
 
   const tables = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
@@ -44,7 +53,7 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({ onSelectType, on
           className="flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 font-semibold text-xs sm:text-sm hover:bg-zinc-800 hover:text-white active:scale-95 transition-all min-h-[44px]"
         >
           <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
-          <span>Voltar ao Início</span>
+          <span>{backLabel}</span>
         </button>
 
         <div className="text-zinc-500 text-[10px] sm:text-xs font-semibold uppercase tracking-widest">

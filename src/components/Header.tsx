@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, Sparkles } from 'lucide-react';
+import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, Sparkles, ArrowLeftRight } from 'lucide-react';
 import { OrderType, AppScreen } from '../types';
 import { playTouchSound } from '../utils/sound';
 
@@ -8,6 +8,7 @@ interface HeaderProps {
   orderType: OrderType | null;
   tableNumber?: string;
   onReset: () => void;
+  onChangeOrderType: () => void;
   activeScreen: AppScreen;
   onNavigateScreen: (screen: AppScreen) => void;
   cartCount: number;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   orderType,
   tableNumber,
   onReset,
+  onChangeOrderType,
   activeScreen,
   onNavigateScreen,
 }) => {
@@ -74,26 +76,6 @@ export const Header: React.FC<HeaderProps> = ({
           <Touchpad className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Autoatendimento</span>
           <span className="sm:hidden">Totem</span>
-        </a>
-
-        {/* 3D Burger Builder link */}
-        <a
-          href="#/montador-3d"
-          onClick={(e) => {
-            e.preventDefault();
-            playTouchSound(550);
-            onNavigateScreen('montador-3d');
-          }}
-          className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[40px] ${
-            activeScreen === 'montador-3d'
-              ? 'bg-amber-500 text-zinc-950 shadow-md'
-              : 'text-zinc-400 hover:text-amber-300'
-          }`}
-          title="Montador de Hambúrguer 3D Interativo (#/montador-3d)"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-          <span className="hidden md:inline">Montador 3D</span>
-          <span className="md:hidden">3D</span>
         </a>
 
         <div className="flex items-center">
@@ -157,18 +139,33 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Zone 3: Session Context & Reset */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-        {activeScreen === 'autoatendimento' && orderType && (
-          <div className="hidden lg:flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full text-zinc-300 text-xs font-medium">
-            <MapPin className="w-3.5 h-3.5 text-amber-400" />
-            <span>
-              {orderType === 'local'
-                ? tableNumber
-                  ? `Mesa ${tableNumber} · Salão`
-                  : 'No Local'
-                : 'Para Viagem'}
-            </span>
-          </div>
-        )}
+        {activeScreen === 'autoatendimento' &&
+          orderType &&
+          (currentStep === 'menu' || currentStep === 'payment') && (
+            <button
+              type="button"
+              onClick={() => {
+                playTouchSound(500);
+                onChangeOrderType();
+              }}
+              className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 px-2.5 sm:px-3 py-2 rounded-lg sm:rounded-full text-zinc-300 text-xs font-medium transition-colors active:scale-95 min-h-[36px]"
+              title="Alterar tipo de pedido (Comer no Local / Para Viagem)"
+            >
+              <MapPin className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden lg:inline">
+                {orderType === 'local'
+                  ? tableNumber
+                    ? `Mesa ${tableNumber} · Salão`
+                    : 'No Local'
+                  : 'Para Viagem'}
+              </span>
+              <span className="hidden sm:flex items-center gap-1 text-amber-400 font-semibold lg:pl-2 lg:border-l lg:border-zinc-700">
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                Alterar
+              </span>
+              <span className="sr-only sm:hidden">Alterar tipo de pedido</span>
+            </button>
+          )}
 
         {/* Reset button if inside order flow in Kiosk */}
         {activeScreen === 'autoatendimento' && currentStep !== 'idle' && (

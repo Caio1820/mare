@@ -91,7 +91,7 @@ export type KioskStep =
   | 'payment'        // Step 5
   | 'confirmation';  // Step 6
 
-export type AppScreen = 'autoatendimento' | 'cozinha' | 'painel' | 'montador-3d';
+export type AppScreen = 'autoatendimento' | 'cozinha' | 'painel';
 
 export interface UpSellItem {
   id: string;
