@@ -5,24 +5,89 @@ import { CategoryId, Product, AddonItem } from '../types';
 // ============================================================================
 export const STANDARD_ADDONS: AddonItem[] = [
   // Frescor e Queijos
-  { id: 'salada_extra', name: 'Salada Maré (Alface, Tomate e Cebola)', price: 6.00 },
-  { id: 'queijo_prato', name: 'Fatia de Queijo Prato Derretido', price: 7.00 },
-  { id: 'queijo_cheddar', name: 'Queijo Cheddar Cremoso', price: 7.00 },
-  { id: 'queijo_regional', name: 'Autêntico Queijo Regional do Amapá', price: 10.00 },
+  {
+    id: 'salada',
+    name: 'Salada',
+    subtitle: 'Alface americana, tomate e cebola roxa',
+    price: 6.00,
+    group: 'FRESCOR E QUEIJOS',
+  },
+  {
+    id: 'queijo_prato',
+    name: 'Queijo prato',
+    price: 7.00,
+    group: 'FRESCOR E QUEIJOS',
+  },
+  {
+    id: 'queijo_cheddar',
+    name: 'Queijo cheddar',
+    price: 7.00,
+    group: 'FRESCOR E QUEIJOS',
+  },
+  {
+    id: 'queijo_regional',
+    name: 'Queijo regional',
+    price: 10.00,
+    group: 'FRESCOR E QUEIJOS',
+  },
 
   // Carnes e Complementos
-  { id: 'bacon', name: 'Bacon Douradinho e Crocante', price: 7.00 },
-  { id: 'carne_90g', name: 'Blend Smash Bovino Extra (90g)', price: 10.00 },
-  { id: 'carne_160g', name: 'Blend Bovino Grelhado Extra (160g)', price: 15.00 },
-  { id: 'calabresa', name: 'Fatias de Calabresa Douradinha', price: 6.00 },
-  { id: 'ovo', name: 'Ovo Frito na Chapa', price: 4.00 },
-  { id: 'cebola_caramelizada', name: 'Cebola Caramelizada Especial', price: 5.00 },
-  { id: 'costela_desfiada', name: 'Costela Bovina Desfiada Suculenta', price: 12.00 },
-  { id: 'camarao_rosa', name: 'Porção de Camarões-Rosa Grelhados', price: 16.00 },
+  {
+    id: 'bacon',
+    name: 'Bacon',
+    price: 7.00,
+    group: 'CARNES E COMPLEMENTOS',
+  },
+  {
+    id: 'carne_90g',
+    name: 'Carne 90 g',
+    price: 10.00,
+    group: 'CARNES E COMPLEMENTOS',
+  },
+  {
+    id: 'carne_160g',
+    name: 'Carne 160 g',
+    price: 15.00,
+    group: 'CARNES E COMPLEMENTOS',
+  },
+  {
+    id: 'calabresa',
+    name: 'Calabresa',
+    price: 6.00,
+    group: 'CARNES E COMPLEMENTOS',
+  },
+  {
+    id: 'ovo',
+    name: 'Ovo',
+    price: 4.00,
+    group: 'CARNES E COMPLEMENTOS',
+  },
+  {
+    id: 'cebola_caramelizada',
+    name: 'Cebola caramelizada',
+    price: 5.00,
+    group: 'CARNES E COMPLEMENTOS',
+  },
+  {
+    id: 'costela_desfiada',
+    name: 'Costela desfiada',
+    price: 12.00,
+    group: 'CARNES E COMPLEMENTOS',
+  },
+  {
+    id: 'camarao_rosa',
+    name: 'Camarão-rosa',
+    price: 16.00,
+    group: 'CARNES E COMPLEMENTOS',
+  },
 
   // Acompanhamentos
-  { id: 'batata_frita_200g', name: 'Batata Frita Extra (200g)', price: 20.00 },
-  { id: 'molho_mare_extra', name: 'Pote Molho Maré Exclusivo', price: 4.00 },
+  {
+    id: 'batata_frita_200g',
+    name: 'Batata frita 200 g',
+    price: 20.00,
+    group: 'ACOMPANHAMENTOS',
+  },
 ];
 
 export const CATEGORIES_CONFIG: { id: CategoryId; stage: string; title: string; subtitle: string }[] = [
@@ -84,11 +149,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/batata_mare.jpg',
     isBurger: false,
     defaultIngredients: ['Batatas fritas douradas crocantes', 'Exclusivo Molho Maré'],
-    suggestedAddons: [
-      { id: 'queijo_cheddar', name: 'Queijo Cheddar Derretido', price: 7.00 },
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'molho_mare_extra', name: 'Molho Maré Adicional', price: 4.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '01 / Primeira Onda',
   },
   {
@@ -101,10 +162,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/bacon_mare.jpg',
     isBurger: false,
     defaultIngredients: ['Batatas fritas crocantes', 'Queijo derretido', 'Pedaços de bacon douradinhos', 'Exclusivo Molho Maré'],
-    suggestedAddons: [
-      { id: 'molho_mare_extra', name: 'Molho Maré Adicional', price: 4.00 },
-      { id: 'queijo_regional', name: 'Queijo Regional Amapá', price: 10.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '02 / Mais Pedida',
   },
   {
@@ -117,10 +175,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/costela_mare.jpg',
     isBurger: false,
     defaultIngredients: ['Batatas fritas douradas', 'Costela bovina desfiada suculenta', 'Cubos de queijo regional do Amapá', 'Exclusivo Molho Maré'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'molho_mare_extra', name: 'Molho Maré Adicional', price: 4.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '03 / Regional Amapá',
   },
   {
@@ -133,10 +188,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/calabresa_mare.jpg',
     isBurger: false,
     defaultIngredients: ['Batatas fritas crocantes', 'Queijo derretido', 'Cubos de calabresa douradinha', 'Exclusivo Molho Maré'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'molho_mare_extra', name: 'Molho Maré Adicional', price: 4.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '04 / Primeira Onda',
   },
 
@@ -153,11 +205,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/classico_casa.jpg',
     isBurger: true,
     defaultIngredients: ['Pão brioche tostado', 'Blend bovino 160g', 'Queijo prato derretido', 'Alface americana crocante', 'Tomate fresco', 'Cebola fresca'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'ovo', name: 'Ovo na Chapa', price: 4.00 },
-      { id: 'cebola_caramelizada', name: 'Cebola Caramelizada', price: 5.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'O Clássico',
   },
   {
@@ -170,10 +218,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/bacon_caramelizado.jpg',
     isBurger: true,
     defaultIngredients: ['Pão brioche', 'Blend bovino 160g', 'Queijo prato derretido', 'Fatias de bacon crocante', 'Cebola caramelizada', 'Molho tártaro', 'Alface americana', 'Tomate'],
-    suggestedAddons: [
-      { id: 'queijo_cheddar', name: 'Cheddar Extra', price: 7.00 },
-      { id: 'carne_160g', name: 'Carne Extra 160g', price: 15.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Sucesso Maré',
   },
   {
@@ -186,10 +231,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/especial_casa.jpg',
     isBurger: true,
     defaultIngredients: ['Pão brioche amanteigado', 'Blend bovino 160g', 'Queijo prato derretido', 'Ovo frito', 'Calabresa dourada', 'Alface americana', 'Tomate', 'Cebola roxa', 'Molho Maré exclusivo'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'queijo_regional', name: 'Queijo Regional Amapá', price: 10.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Completo',
   },
 
@@ -206,10 +248,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/smash_mare.jpg',
     isBurger: true,
     defaultIngredients: ['Pão amanteigado tostado', 'Blend bovino smash 90g com crostinha', 'Cheddar cremoso derretido'],
-    suggestedAddons: [
-      { id: 'carne_90g', name: 'Mais 1 Carne Smash 90g', price: 10.00 },
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Entrada Smash',
   },
   {
@@ -222,10 +261,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/smash_duas_ondas.jpg',
     isBurger: true,
     defaultIngredients: ['Pão amanteigado', '2x Blend bovino 90g prensados na chapa', 'Generosas camadas de cheddar derretido'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'cebola_caramelizada', name: 'Cebola Caramelizada', price: 5.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Carne em Dobro',
   },
   {
@@ -238,10 +274,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/smash_bacon_onda.jpg',
     isBurger: true,
     defaultIngredients: ['Pão amanteigado', 'Blend bovino smash 90g', 'Queijo cheddar cremoso', 'Fatias de bacon dourado e crocante'],
-    suggestedAddons: [
-      { id: 'carne_90g', name: 'Smash Extra 90g', price: 10.00 },
-      { id: 'ovo', name: 'Ovo na Chapa', price: 4.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Bacon Lover',
   },
   {
@@ -254,10 +287,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/smash_calabresa_mare.jpg',
     isBurger: true,
     defaultIngredients: ['Pão amanteigado', 'Blend bovino smash 90g', 'Queijo cheddar derretido', 'Fatias saborosas de calabresa dourada'],
-    suggestedAddons: [
-      { id: 'carne_90g', name: 'Smash Extra 90g', price: 10.00 },
-      { id: 'cebola_caramelizada', name: 'Cebola Caramelizada', price: 5.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Marcante',
   },
 
@@ -274,10 +304,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/costela_queijo_regional.jpg',
     isBurger: true,
     defaultIngredients: ['Pão brioche', 'Blend bovino 160g', 'Costela bovina desfiada suculenta', 'Autêntico queijo regional do Amapá', 'Molho Maré exclusivo'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'cebola_caramelizada', name: 'Cebola Caramelizada', price: 5.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Orgulho do Amapá',
   },
   {
@@ -290,10 +317,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/mare_rosa.jpg',
     isBurger: true,
     defaultIngredients: ['Pão brioche artesanal', 'Blend bovino 160g', 'Camarões-rosa selecionados', 'Queijo prato derretido', 'Alface americana', 'Tomate', 'Cebola roxa', 'Molho Maré'],
-    suggestedAddons: [
-      { id: 'camarao_rosa', name: 'Porção Extra de Camarão-Rosa', price: 16.00 },
-      { id: 'queijo_regional', name: 'Queijo Regional Amapá', price: 10.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Surf & Turf Nobre',
   },
   {
@@ -306,10 +330,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/brisa_frango.jpg',
     isBurger: true,
     defaultIngredients: ['Pão brioche', 'Blend de frango suculento', 'Queijo prato derretido', 'Alface americana crocante', 'Tomate fresco', 'Cebola roxa', 'Cremoso molho tártaro'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'queijo_cheddar', name: 'Queijo Cheddar', price: 7.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Leve & Saboroso',
   },
   {
@@ -322,10 +343,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/onda_suina.jpg',
     isBurger: true,
     defaultIngredients: ['Pão brioche', 'Blend especial de carnes bovina e suína', 'Cheddar derretido', 'Salada crocante', 'Fatias de picles artesanal'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-      { id: 'cebola_caramelizada', name: 'Cebola Caramelizada', price: 5.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Receita Especial',
   },
 
@@ -342,10 +360,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/pororoca_solo.jpg',
     isBurger: true,
     defaultIngredients: ['1x Clássico da Casa (160g)', 'Porção individual de Batatas Fritas douradas', '1x Refrigerante em lata gelado'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon no Burger', price: 7.00 },
-      { id: 'molho_mare_extra', name: 'Molho Maré Adicional', price: 4.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Combo Individual',
   },
   {
@@ -358,10 +373,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/pororoca_dobro.jpg',
     isBurger: true,
     defaultIngredients: ['2x Clássicos da Casa (160g cada)', 'Porção de Batatas Fritas crocantes', '1x Refrigerante de 350ml'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon nos 2 Burgers', price: 14.00 },
-      { id: 'batata_frita_200g', name: 'Batata Frita 200g Extra', price: 20.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Combo para 2',
   },
   {
@@ -374,10 +386,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/trio_pororoca.jpg',
     isBurger: true,
     defaultIngredients: ['3x Clássicos da Casa (160g cada)', 'Porção generosa de Batatas Fritas crocantes', 'Refrigerante 350ml'],
-    suggestedAddons: [
-      { id: 'bacon', name: 'Bacon nos Burgers', price: 14.00 },
-      { id: 'molho_mare_extra', name: 'Molhos Maré Extras', price: 8.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: 'Combo Amigos & Família',
   },
 
@@ -394,10 +403,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/mare_de_sol.jpg',
     isBurger: false,
     defaultIngredients: ['Carne de sol suculenta e macia', 'Batatas fritas crocantes', 'Farofa crocante da casa', 'Molho Maré', 'Molho Rosé'],
-    suggestedAddons: [
-      { id: 'queijo_regional', name: 'Queijo Regional Amapá', price: 10.00 },
-      { id: 'batata_frita_200g', name: 'Batata Frita Extra (200g)', price: 20.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '01 / Petiscos',
   },
   {
@@ -410,10 +416,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/vento_de_file.jpg',
     isBurger: false,
     defaultIngredients: ['Tiras de filé bovino suculento', 'Cebolas roxas douradas', 'Batatas fritas douradinhas', '2 Molhos especiais da casa'],
-    suggestedAddons: [
-      { id: 'queijo_prato', name: 'Queijo Derretido por Cima', price: 7.00 },
-      { id: 'farofa_extra', name: 'Farofa Extra da Casa', price: 5.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '02 / Filé Acebolado',
   },
   {
@@ -426,10 +429,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/mare_de_picanha.jpg',
     isBurger: false,
     defaultIngredients: ['Picanha bovina em tiras selecionadas', 'Batatas fritas crocantes', 'Farofa especial', '2 Molhos da casa'],
-    suggestedAddons: [
-      { id: 'queijo_regional', name: 'Queijo Regional Amapá', price: 10.00 },
-      { id: 'bacon', name: 'Bacon Crocante', price: 7.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '03 / Picanha Premium',
   },
   {
@@ -442,10 +442,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/croc_mare.jpg',
     isBurger: false,
     defaultIngredients: ['Coxinhas da asa de frango empanadas crocantes', 'Farofa temperada', 'Exclusivo Molho Maré'],
-    suggestedAddons: [
-      { id: 'batata_frita_200g', name: 'Adicionar Batata Frita 200g', price: 20.00 },
-      { id: 'molho_mare_extra', name: 'Pote Molho Maré Extra', price: 4.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '04 / Frango Crocante',
   },
   {
@@ -458,10 +455,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/frango_na_onda.jpg',
     isBurger: false,
     defaultIngredients: ['Peito de frango empanado em tiras crocantes', 'Farofa temperada', 'Exclusivo Molho Maré'],
-    suggestedAddons: [
-      { id: 'batata_frita_200g', name: 'Adicionar Batata Frita 200g', price: 20.00 },
-      { id: 'molho_mare_extra', name: 'Pote Molho Maré Extra', price: 4.00 },
-    ],
+    suggestedAddons: STANDARD_ADDONS,
     badge: '05 / Petiscos',
   },
 

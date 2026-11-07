@@ -18,7 +18,9 @@ export interface Product {
 export interface AddonItem {
   id: string;
   name: string;
+  subtitle?: string;
   price: number;
+  group?: string;
 }
 
 export interface CustomizationSelection {

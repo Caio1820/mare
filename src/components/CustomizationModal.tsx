@@ -198,71 +198,100 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
             </div>
           )}
 
-          {/* 3. Adicionais & Extras */}
+          {/* 3. TOQUE DA MARÉ - Adicionais Oficiais */}
           {product.suggestedAddons && product.suggestedAddons.length > 0 && (
-            <div className="bg-zinc-950/60 border border-zinc-800/80 rounded-2xl p-4 sm:p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-display text-base font-bold text-zinc-200 uppercase tracking-wide">
-                  Adicionais & Extras Especiais
-                </h4>
-                <span className="text-xs text-amber-400 font-semibold">Turbine seu lanche</span>
+            <div className="bg-zinc-950/60 border border-zinc-800/80 rounded-2xl p-4 sm:p-5 space-y-4">
+              <div className="border-b border-zinc-800/80 pb-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-display text-lg font-bold text-amber-400 uppercase tracking-wide">
+                    Toque da Maré
+                  </h4>
+                  <span className="text-[11px] uppercase tracking-widest text-zinc-400 font-bold">
+                    Adicionais
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Um toque a mais de sabor: personalize seu pedido com os seus favoritos.
+                </p>
               </div>
 
-              <div className="space-y-2.5">
-                {product.suggestedAddons.map((addon: AddonItem) => {
-                  const count = selectedAddons[addon.id] || 0;
-                  return (
-                    <div
-                      key={addon.id}
-                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-colors ${
-                        count > 0
-                          ? 'bg-amber-950/20 border-amber-500/50'
-                          : 'bg-zinc-900 border-zinc-800'
-                      }`}
-                    >
-                      <div>
-                        <span className="text-sm font-semibold text-zinc-200 block">
-                          {addon.name}
-                        </span>
-                        <span className="font-mono text-xs font-bold text-amber-400">
-                          + R$ {addon.price.toFixed(2).replace('.', ',')}
-                        </span>
-                      </div>
-
-                      {/* Stepper (+ / -) */}
-                      <div className="flex items-center gap-2">
-                        {count > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => handleAddonDelta(addon.id, -1)}
-                            className="w-10 h-10 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center font-bold text-lg active:scale-90 min-w-[40px]"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {count > 0 && (
-                          <span className="font-mono text-base font-bold text-zinc-100 w-6 text-center">
-                            {count}
-                          </span>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => handleAddonDelta(addon.id, 1)}
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg active:scale-90 min-w-[40px] ${
-                            count > 0
-                              ? 'bg-amber-500 text-zinc-950'
-                              : 'bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700'
-                          }`}
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
+              {Array.from(
+                new Set(product.suggestedAddons.map((a) => a.group || 'ADICIONAIS'))
+              ).map((groupName) => {
+                const groupAddons = product.suggestedAddons.filter(
+                  (a) => (a.group || 'ADICIONAIS') === groupName
+                );
+                return (
+                  <div key={groupName} className="space-y-2">
+                    <div className="bg-zinc-900 border border-zinc-800/90 px-3 py-1.5 rounded-lg">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400/90">
+                        {groupName}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div className="space-y-2">
+                      {groupAddons.map((addon: AddonItem) => {
+                        const count = selectedAddons[addon.id] || 0;
+                        return (
+                          <div
+                            key={addon.id}
+                            className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-colors ${
+                              count > 0
+                                ? 'bg-amber-950/25 border-amber-500/50'
+                                : 'bg-zinc-900/70 border-zinc-800/80'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className="text-sm font-bold text-zinc-100 block">
+                                {addon.name}
+                              </span>
+                              {addon.subtitle && (
+                                <span className="text-xs text-zinc-400 block leading-snug">
+                                  {addon.subtitle}
+                                </span>
+                              )}
+                              <span className="font-mono text-xs font-bold text-amber-400 mt-0.5 block">
+                                R$ {addon.price.toFixed(2).replace('.', ',')}
+                              </span>
+                            </div>
+
+                            {/* Stepper (+ / -) */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {count > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddonDelta(addon.id, -1)}
+                                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center font-bold text-lg active:scale-90"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                              )}
+
+                              {count > 0 && (
+                                <span className="font-mono text-sm sm:text-base font-bold text-zinc-100 w-5 text-center">
+                                  {count}
+                                </span>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleAddonDelta(addon.id, 1)}
+                                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center font-bold text-lg active:scale-90 ${
+                                  count > 0
+                                    ? 'bg-amber-500 text-zinc-950'
+                                    : 'bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700'
+                                }`}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
