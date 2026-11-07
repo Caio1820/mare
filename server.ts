@@ -432,10 +432,8 @@ async function startServer() {
   // Static image assets fallback (served directly before Vite middleware)
   const publicDir = path.resolve(__dirname, 'public');
   const imagesDir = path.resolve(__dirname, 'public/images');
-  const srcAssetsImagesDir = path.resolve(__dirname, 'src/assets/images');
 
   app.use('/images', express.static(imagesDir));
-  app.use('/src/assets/images', express.static(srcAssetsImagesDir));
   app.use(express.static(publicDir));
 
   // Vite development middleware
@@ -454,7 +452,7 @@ async function startServer() {
     // SPA fallback: transform and serve index.html for all non-API routes on reload
     app.use(async (req: Request, res: Response, next) => {
       const url = req.originalUrl;
-      if (url.startsWith('/api') || url.startsWith('/images') || url.startsWith('/src/assets')) {
+      if (url.startsWith('/api') || url.startsWith('/images')) {
         return next();
       }
       try {

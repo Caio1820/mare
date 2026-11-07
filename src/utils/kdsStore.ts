@@ -10,7 +10,7 @@ import {
   query,
   orderBy,
   limit,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 
 const STORAGE_KEY = 'mare_orders_v2';
 const BROADCAST_CHANNEL_NAME = 'mare_restaurant_channel';
