@@ -23,165 +23,31 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Initial seed orders for realistic testing
-const INITIAL_SEED_ORDERS = [
-  {
-    id: 'ord-seed-01',
-    orderNumber: '#001',
-    customerName: 'Carlos Silva',
-    orderType: 'local',
-    tableNumber: '03',
-    items: [
-      {
-        cartItemId: 'item-seed-1',
-        product: {
-          id: 'bacon_caramelizado',
-          name: 'Bacon Caramelizado',
-          categoryId: 'artesanais',
-          categoryLabel: 'Alto-Mar',
-          price: 34.9,
-          description: 'Blend bovino 180g na brasa...',
-          image: '/images/bacon_caramelizado.jpg',
-          isBurger: true,
-          defaultIngredients: ['Pão brioche', 'Blend 160g', 'Bacon caramelizado'],
-          suggestedAddons: [],
-        },
-        quantity: 1,
-        customization: {
-          meatDoneness: 'Ao ponto',
-          removedIngredients: ['Cebola roxa'],
-          selectedAddons: { queijo_extra: 1 },
-          specialNotes: 'Bacon bem tostadinho por favor',
-        },
-        unitPrice: 41.4,
-        totalPrice: 41.4,
-      },
-      {
-        cartItemId: 'item-seed-2',
-        product: {
-          id: 'batata_mare',
-          name: 'Batata da Maré',
-          categoryId: 'entradas',
-          categoryLabel: 'Primeira Onda',
-          price: 26.9,
-          description: '',
-          image: '/images/batata_mare.jpg',
-          isBurger: false,
-          defaultIngredients: ['Batatas fritas douradas', 'Molho Maré'],
-          suggestedAddons: [],
-        },
-        quantity: 1,
-        unitPrice: 26.9,
-        totalPrice: 26.9,
-      },
-    ],
-    observations: 'Sem guardanapos plásticos, por favor.',
-    subtotal: 68.3,
-    total: 68.3,
-    paymentMethod: 'pix',
-    paymentStatus: 'pago',
-    status: 'preparo',
-    createdAt: Date.now() - 1000 * 60 * 7,
-    formattedTime: '13:45',
-    estimatedMinutes: 15,
-  },
-  {
-    id: 'ord-seed-02',
-    orderNumber: '#002',
-    customerName: 'Mariana Costa',
-    orderType: 'viagem',
-    items: [
-      {
-        cartItemId: 'item-seed-3',
-        product: {
-          id: 'costela_queijo_regional',
-          name: 'Costela com Queijo Regional',
-          categoryId: 'prime',
-          categoryLabel: 'Maré Nobre',
-          price: 39.9,
-          description: '',
-          image: '/images/costela_queijo_regional.jpg',
-          isBurger: true,
-          defaultIngredients: ['Pão artesanal', 'Blend nobre 160g', 'Queijo regional'],
-          suggestedAddons: [],
-        },
-        quantity: 1,
-        customization: {
-          meatDoneness: 'Bem passado',
-          removedIngredients: [],
-          selectedAddons: {},
-          specialNotes: '',
-        },
-        unitPrice: 39.9,
-        totalPrice: 39.9,
-      },
-    ],
-    observations: 'Embalar bem para viagem de moto.',
-    subtotal: 39.9,
-    total: 39.9,
-    paymentMethod: 'cartao_balcao',
-    paymentStatus: 'pago',
-    status: 'recebido',
-    createdAt: Date.now() - 1000 * 60 * 2,
-    formattedTime: '13:50',
-    estimatedMinutes: 15,
-  },
-  {
-    id: 'ord-seed-03',
-    orderNumber: '#003',
-    customerName: 'Lucas Lima',
-    orderType: 'local',
-    tableNumber: '07',
-    items: [
-      {
-        cartItemId: 'item-seed-4',
-        product: {
-          id: 'smash_duas_ondas',
-          name: 'Smash Duas Ondas',
-          categoryId: 'smash',
-          categoryLabel: 'Onda Smash',
-          price: 25.9,
-          description: '',
-          image: '/images/smash_duas_ondas.jpg',
-          isBurger: true,
-          defaultIngredients: [],
-          suggestedAddons: [],
-        },
-        quantity: 2,
-        customization: {
-          meatDoneness: 'Ao ponto',
-          removedIngredients: ['Picles artesanal'],
-          selectedAddons: {},
-          specialNotes: '',
-        },
-        unitPrice: 23.9,
-        totalPrice: 47.8,
-      },
-    ],
-    observations: '',
-    subtotal: 47.8,
-    total: 47.8,
-    paymentMethod: 'pix',
-    paymentStatus: 'pago',
-    status: 'pronto',
-    createdAt: Date.now() - 1000 * 60 * 18,
-    formattedTime: '13:34',
-    estimatedMinutes: 15,
-  },
-];
+// Initial orders (empty for clean production use without fictitious orders)
+const INITIAL_SEED_ORDERS: any[] = [];
 
 // Helper to read orders from file
 function readOrdersFromFile(): any[] {
   try {
     if (!fs.existsSync(ORDERS_FILE)) {
-      fs.writeFileSync(ORDERS_FILE, JSON.stringify(INITIAL_SEED_ORDERS, null, 2), 'utf-8');
-      return INITIAL_SEED_ORDERS;
+      fs.writeFileSync(ORDERS_FILE, JSON.stringify([], null, 2), 'utf-8');
+      return [];
     }
     const content = fs.readFileSync(ORDERS_FILE, 'utf-8');
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    // Automatically purge any remaining seed orders from past sessions
+    if (Array.isArray(parsed)) {
+      const realOrders = parsed.filter((o: any) => !o.id?.includes('seed'));
+      if (realOrders.length !== parsed.length) {
+        fs.writeFileSync(ORDERS_FILE, JSON.stringify(realOrders, null, 2), 'utf-8');
+        return realOrders;
+      }
+      return parsed;
+    }
+    return [];
   } catch (err) {
     console.error('Error reading orders from file:', err);
-    return INITIAL_SEED_ORDERS;
+    return [];
   }
 }
 
@@ -403,6 +269,27 @@ async function startServer() {
     } catch (err) {
       console.error('Error updating order status:', err);
       res.status(500).json({ error: 'Erro ao atualizar status.' });
+    }
+  });
+
+  // DELETE clear all orders or fictitious orders (Staff / Kitchen action)
+  app.delete('/api/orders/clear', (req: Request, res: Response) => {
+    try {
+      const { all } = req.query;
+      const current = readOrdersFromFile();
+      let updated: any[] = [];
+      if (all === 'true') {
+        updated = [];
+      } else {
+        // Keep only real orders, purge any seeds
+        updated = current.filter((o) => !o.id?.includes('seed'));
+      }
+      writeOrdersToFile(updated);
+      broadcastOrdersUpdate(updated);
+      res.json({ success: true, count: updated.length, message: 'Fila de pedidos limpa com sucesso.' });
+    } catch (err) {
+      console.error('Error clearing orders:', err);
+      res.status(500).json({ error: 'Erro ao limpar pedidos.' });
     }
   });
 

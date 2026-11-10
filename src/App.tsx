@@ -19,6 +19,7 @@ import { Step6Confirmation } from './components/Step6Confirmation';
 import { KdsView } from './components/KdsView';
 import { TvPanel } from './components/TvPanel';
 import { UpSellModal } from './components/UpSellModal';
+import { StaffGuideModal } from './components/StaffGuideModal';
 import { createOrder } from './utils/kdsStore';
 
 function getScreenFromUrl(): AppScreen {
@@ -106,6 +107,7 @@ export default function App() {
   const [isUpSellModalOpen, setIsUpSellModalOpen] = useState<boolean>(false);
   const [hasDismissedUpSell, setHasDismissedUpSell] = useState<boolean>(false);
   const [lastConfirmedOrder, setLastConfirmedOrder] = useState<Order | null>(null);
+  const [isStaffGuideOpen, setIsStaffGuideOpen] = useState<boolean>(false);
 
   // Sync with browser URL changes (pathname or hash)
   useEffect(() => {
@@ -290,6 +292,7 @@ export default function App() {
             onNavigateScreen={handleNavigateScreen}
             cartCount={cartCount}
             onChangeOrderType={handleChangeOrderType}
+            onOpenStaffGuide={() => setIsStaffGuideOpen(true)}
           />
 
           <main className="flex-1 flex flex-col">
@@ -374,6 +377,13 @@ export default function App() {
                 onClose={handleDismissUpSellAndPay}
               />
             )}
+
+            {/* Staff Training / Operation Guide Modal */}
+            <StaffGuideModal
+              isOpen={isStaffGuideOpen}
+              onClose={() => setIsStaffGuideOpen(false)}
+              defaultTab="geral"
+            />
           </main>
         </>
       )}

@@ -12,6 +12,7 @@ interface HeaderProps {
   onNavigateScreen: (screen: AppScreen) => void;
   cartCount: number;
   onChangeOrderType?: () => void;
+  onOpenStaffGuide?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeScreen,
   onNavigateScreen,
   onChangeOrderType,
+  onOpenStaffGuide,
 }) => {
   return (
     <header className="relative z-30 w-full bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 px-2.5 sm:px-6 md:px-8 py-2 sm:py-3.5 flex items-center justify-between gap-1.5 sm:gap-4 overflow-x-hidden">
@@ -135,6 +137,22 @@ export const Header: React.FC<HeaderProps> = ({
             ↗
           </a>
         </div>
+
+        {/* Guia da Equipe / Manual */}
+        {onOpenStaffGuide && (
+          <button
+            onClick={() => {
+              playTouchSound(550);
+              onOpenStaffGuide();
+            }}
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/30 transition-all min-h-[36px] sm:min-h-[40px]"
+            title="Guia de Treinamento da Equipe"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Guia Equipe</span>
+            <span className="sm:hidden">Guia</span>
+          </button>
+        )}
       </div>
 
       {/* Zone 3: Session Context & Reset */}

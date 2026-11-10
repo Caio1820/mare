@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UtensilsCrossed, ShoppingBag, ArrowLeft, Check, Hash } from 'lucide-react';
+import { UtensilsCrossed, ShoppingBag, ArrowLeft, Check, Hash, Store } from 'lucide-react';
 import { OrderType } from '../types';
 import { playTouchSound } from '../utils/sound';
 
@@ -22,7 +22,7 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
   const [tableNumber, setTableNumber] = useState<string>(initialTable);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
 
-  const tables = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+  const tables = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'];
 
   const handlePickType = (type: OrderType) => {
     playTouchSound(580);
@@ -70,7 +70,7 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
           Escolha uma das opções abaixo para continuarmos para o cardápio
         </p>
 
-        {/* 2 Big Touch Cards (fluid and compact on mobile) */}
+        {/* 2 Big Touch Cards */}
         <div className="mt-6 sm:mt-10 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 max-w-3xl mx-auto">
           {/* Comer no Local */}
           <button
@@ -95,7 +95,7 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
             </div>
 
             <div className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors min-h-[44px] sm:min-h-[48px]">
-              <span>Selecionar Mesa</span>
+              <span>Selecionar Mesa ou Balcão</span>
               <Check className="w-4 h-4 stroke-[3]" />
             </div>
           </button>
@@ -128,14 +128,25 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
             </div>
           </button>
         </div>
+
+        {/* Atalho Rápido para a Atendente no Caixa */}
+        <div className="mt-4 sm:mt-6 max-w-3xl mx-auto">
+          <button
+            onClick={() => handleConfirmTable('Balcão')}
+            className="w-full py-3.5 px-6 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700 hover:border-amber-500/50 text-zinc-200 font-display font-bold text-sm sm:text-base uppercase tracking-wider flex items-center justify-center gap-2.5 active:scale-98 transition-all shadow-lg"
+          >
+            <Store className="w-5 h-5 text-amber-400" />
+            <span>Atendimento Direto no Balcão (Comer no Salão · Sem Mesa)</span>
+          </button>
+        </div>
       </div>
 
       {/* Footer Info */}
       <div className="text-center text-xs text-zinc-500 font-medium">
-        Toque na opção desejada para navegar pelas 5 Etapas do Cardápio Maré
+        Toque na opção desejada para navegar pelas Etapas do Cardápio Maré
       </div>
 
-      {/* Table Selection Modal (01 a 10) */}
+      {/* Table Selection Modal (01 a 10 + Opção Balcão) */}
       {isTableModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-700/80 rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
@@ -146,10 +157,10 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
                 </div>
                 <div>
                   <h3 className="font-display text-xl font-bold text-zinc-100 uppercase">
-                    Número da Mesa / Comanda
+                    Número da Mesa / Balcão
                   </h3>
                   <p className="text-xs text-zinc-400">
-                    Selecione o número da mesa onde você está acomodado (01 a 10)
+                    Selecione a mesa (01 a 11) ou escolha Balcão se ainda não sentou
                   </p>
                 </div>
               </div>
@@ -165,9 +176,20 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
               </button>
             </div>
 
-            {/* Table Number Grid 01 a 10 */}
-            <div className="py-6">
-              <div className="grid grid-cols-5 gap-3">
+            {/* Opção Rápida: Sem Mesa / Balcão */}
+            <div className="pt-4">
+              <button
+                onClick={() => handleConfirmTable('Balcão')}
+                className="w-full py-3 px-4 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border-2 border-amber-500/60 text-amber-300 font-display font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <Store className="w-4 h-4 text-amber-400" />
+                <span>Estou Pedindo no Balcão (Sem Mesa Definida)</span>
+              </button>
+            </div>
+
+            {/* Table Number Grid 01 a 11 */}
+            <div className="py-5">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5 sm:gap-3">
                 {tables.map((tbl) => {
                   const isSelected = tableNumber === tbl;
                   return (
@@ -193,13 +215,13 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
               </div>
 
               {/* Selected Preview Box */}
-              <div className="mt-6 p-4 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+              <div className="mt-5 p-4 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between">
                 <div>
                   <span className="text-xs uppercase font-bold text-zinc-500 block">
-                    Mesa Selecionada:
+                    Local Selecionado:
                   </span>
                   <span className="font-display text-2xl font-bold text-amber-400">
-                    Mesa {tableNumber}
+                    {tableNumber === 'Balcão' ? 'Balcão (Salão)' : `Mesa ${tableNumber}`}
                   </span>
                 </div>
                 <span className="text-xs text-zinc-400 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800">
@@ -209,7 +231,7 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={() => {
                   playTouchSound(420);
@@ -223,7 +245,7 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
                 onClick={() => handleConfirmTable(tableNumber)}
                 className="flex-2 py-4 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-zinc-950 font-display font-bold text-base uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2 min-h-[50px]"
               >
-                <span>Confirmar Mesa {tableNumber}</span>
+                <span>Confirmar {tableNumber === 'Balcão' ? 'Balcão' : `Mesa ${tableNumber}`}</span>
                 <Check className="w-5 h-5 stroke-[3]" />
               </button>
             </div>

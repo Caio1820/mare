@@ -52,7 +52,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   if (!isOpen) return null;
 
   const currentType = orderType || 'local';
-  const tables = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+  const tables = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'];
 
   const handleFinalize = () => {
     if (items.length === 0 || isSubmitting) return;
@@ -170,7 +170,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
 
               {isEditingTable && (
-                <div className="grid grid-cols-5 gap-1.5 mt-2 animate-in fade-in">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 mt-2 animate-in fade-in">
                   {tables.map((t) => (
                     <button
                       key={t}

@@ -21,9 +21,10 @@ import {
   Layers,
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
-import { subscribeToOrders, updateOrderStatus, verifyAdminPassword, announceOrder } from '../utils/kdsStore';
+import { subscribeToOrders, updateOrderStatus, verifyAdminPassword, announceOrder, clearAllOrders } from '../utils/kdsStore';
 import { playTouchSound, playKitchenBell, speakOrderReady, unlockAudioContext } from '../utils/sound';
 import { ThermalReceipt } from './ThermalReceipt';
+import { StaffGuideModal } from './StaffGuideModal';
 
 interface KdsViewProps {
   onBackToKiosk: () => void;
@@ -47,6 +48,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
   const [mobileTab, setMobileTab] = useState<'recebido' | 'preparo' | 'pronto'>('recebido');
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
   const [lastAnnouncedId, setLastAnnouncedId] = useState<string | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
 
   // Real-time time updater for elapsed minute calculation
   useEffect(() => {
@@ -276,13 +278,41 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {/* GUIA DA EQUIPE */}
+          <button
+            onClick={() => {
+              playTouchSound(550);
+              setIsGuideOpen(true);
+            }}
+            className="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95"
+            title="Abrir Manual de Treinamento da Equipe"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">Guia Equipe</span>
+          </button>
+
+          {/* LIMPAR FILA */}
+          <button
+            onClick={() => {
+              playTouchSound(450);
+              if (window.confirm('Deseja limpar todos os pedidos finalizados/entregues da fila da cozinha?')) {
+                clearAllOrders(false);
+              }
+            }}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 border border-zinc-700 flex items-center gap-1.5 text-xs font-semibold"
+            title="Limpar pedidos antigos"
+          >
+            <Layers className="w-4 h-4 text-zinc-400" />
+            <span className="hidden md:inline">Limpar Fila</span>
+          </button>
+
           <button
             onClick={() => {
               playKitchenBell();
             }}
             title="Testar alarme sonoro"
-            className="p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex items-center gap-1.5 text-xs font-semibold"
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex items-center gap-1.5 text-xs font-semibold"
           >
             <Bell className="w-4 h-4" />
             <span className="hidden md:inline">Testar Som</span>
@@ -293,7 +323,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
               playTouchSound(500);
               onBackToKiosk();
             }}
-            className="px-3.5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 font-semibold text-xs border border-zinc-700 flex items-center gap-1.5"
+            className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 font-semibold text-xs border border-zinc-700 flex items-center gap-1.5"
           >
             <ArrowLeft className="w-4 h-4 text-amber-500" />
             <span className="hidden sm:inline">Totem</span>
@@ -302,7 +332,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
           {/* REQUIRED PROMINENT SAIR BUTTON */}
           <button
             onClick={handleLogout}
-            className="px-4 py-2.5 rounded-xl bg-red-950/50 hover:bg-red-900/60 text-red-200 border border-red-800 font-display font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all"
+            className="px-3.5 py-2 rounded-xl bg-red-950/50 hover:bg-red-900/60 text-red-200 border border-red-800 font-display font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all"
             title="Encerrar sessão de administrador"
           >
             <LogOut className="w-4 h-4 text-red-400" />
@@ -534,6 +564,13 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
           onClose={() => setPrintingOrder(null)}
         />
       )}
+
+      {/* Staff Guide Modal */}
+      <StaffGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        defaultTab="cozinha"
+      />
     </div>
   );
 };

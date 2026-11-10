@@ -25,172 +25,33 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   }
 }
 
-// Fallback initial seeds
-const INITIAL_SEEDED_ORDERS: Order[] = [
-  {
-    id: 'ord-seed-01',
-    orderNumber: '#001',
-    customerName: 'Carlos Silva',
-    orderType: 'local',
-    tableNumber: '03',
-    items: [
-      {
-        cartItemId: 'item-seed-1',
-        product: {
-          id: 'bacon_caramelizado',
-          name: 'Bacon Caramelizado',
-          categoryId: 'artesanais',
-          categoryLabel: 'Alto-Mar',
-          price: 34.90,
-          description: '',
-          image: '/images/bacon_caramelizado.jpg',
-          isBurger: true,
-          defaultIngredients: ['Pão brioche', 'Blend 160g', 'Bacon caramelizado'],
-          suggestedAddons: [],
-        },
-        quantity: 1,
-        customization: {
-          meatDoneness: 'Ao ponto',
-          removedIngredients: ['Cebola roxa'],
-          selectedAddons: { queijo_extra: 1 },
-          specialNotes: 'Bacon bem tostadinho por favor',
-        },
-        unitPrice: 41.40,
-        totalPrice: 41.40,
-      },
-      {
-        cartItemId: 'item-seed-2',
-        product: {
-          id: 'batata_mare',
-          name: 'Batata da Maré',
-          categoryId: 'entradas',
-          categoryLabel: 'Primeira Onda',
-          price: 26.90,
-          description: '',
-          image: '/images/batata_mare.jpg',
-          isBurger: false,
-          defaultIngredients: ['Batatas fritas douradas', 'Molho Maré'],
-          suggestedAddons: [],
-        },
-        quantity: 1,
-        unitPrice: 26.90,
-        totalPrice: 26.90,
-      },
-    ],
-    observations: 'Sem guardanapos plásticos, por favor.',
-    subtotal: 68.30,
-    total: 68.30,
-    paymentMethod: 'pix',
-    paymentStatus: 'pago',
-    status: 'preparo',
-    createdAt: Date.now() - 1000 * 60 * 7,
-    formattedTime: '13:45',
-    estimatedMinutes: 15,
-  },
-  {
-    id: 'ord-seed-02',
-    orderNumber: '#002',
-    customerName: 'Mariana Costa',
-    orderType: 'viagem',
-    items: [
-      {
-        cartItemId: 'item-seed-3',
-        product: {
-          id: 'costela_queijo_regional',
-          name: 'Costela com Queijo Regional',
-          categoryId: 'prime',
-          categoryLabel: 'Maré Nobre',
-          price: 39.90,
-          description: '',
-          image: '/images/costela_queijo_regional.jpg',
-          isBurger: true,
-          defaultIngredients: ['Pão artesanal', 'Blend nobre 160g', 'Queijo regional'],
-          suggestedAddons: [],
-        },
-        quantity: 1,
-        customization: {
-          meatDoneness: 'Bem passado',
-          removedIngredients: [],
-          selectedAddons: {},
-          specialNotes: '',
-        },
-        unitPrice: 39.90,
-        totalPrice: 39.90,
-      },
-    ],
-    observations: 'Embalar bem para viagem de moto.',
-    subtotal: 39.90,
-    total: 39.90,
-    paymentMethod: 'cartao_balcao',
-    paymentStatus: 'pago',
-    status: 'recebido',
-    createdAt: Date.now() - 1000 * 60 * 2,
-    formattedTime: '13:50',
-    estimatedMinutes: 15,
-  },
-  {
-    id: 'ord-seed-03',
-    orderNumber: '#003',
-    customerName: 'Lucas Lima',
-    orderType: 'local',
-    tableNumber: '07',
-    items: [
-      {
-        cartItemId: 'item-seed-4',
-        product: {
-          id: 'smash_duas_ondas',
-          name: 'Smash Duas Ondas',
-          categoryId: 'smash',
-          categoryLabel: 'Onda Smash',
-          price: 25.90,
-          description: '',
-          image: '/images/smash_duas_ondas.jpg',
-          isBurger: true,
-          defaultIngredients: [],
-          suggestedAddons: [],
-        },
-        quantity: 2,
-        customization: {
-          meatDoneness: 'Ao ponto',
-          removedIngredients: ['Picles artesanal'],
-          selectedAddons: {},
-          specialNotes: '',
-        },
-        unitPrice: 23.90,
-        totalPrice: 47.80,
-      },
-    ],
-    observations: '',
-    subtotal: 47.80,
-    total: 47.80,
-    paymentMethod: 'pix',
-    paymentStatus: 'pago',
-    status: 'pronto',
-    createdAt: Date.now() - 1000 * 60 * 18,
-    formattedTime: '13:34',
-    estimatedMinutes: 15,
-  },
-];
+// Initial state is empty for clean production without fictitious orders
+const INITIAL_SEEDED_ORDERS: Order[] = [];
 
 // Helper to safely read from localStorage
 export function readFromStorage(): Order[] {
-  if (typeof window === 'undefined') return INITIAL_SEEDED_ORDERS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        // Filter out any fictitious seeds that were previously stored in this browser
+        const cleanOrders = parsed.filter((o: Order) => !o.id?.includes('seed'));
+        if (cleanOrders.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanOrders));
+        }
+        return cleanOrders;
       }
     }
   } catch {
     // Ignore JSON errors
   }
-  return INITIAL_SEEDED_ORDERS;
+  return [];
 }
 
 // In-memory cache initialized directly from localStorage if present
-let cachedOrders: Order[] = typeof window !== 'undefined' ? readFromStorage() : INITIAL_SEEDED_ORDERS;
+let cachedOrders: Order[] = typeof window !== 'undefined' ? readFromStorage() : [];
 let previousOrderCount = cachedOrders.length;
 let eventSource: EventSource | null = null;
 const listeners: Set<(orders: Order[]) => void> = new Set();
@@ -322,9 +183,16 @@ export function initFirestoreSync() {
         if (!snapshot.empty) {
           const remoteOrders: Order[] = [];
           snapshot.forEach((docSnap) => {
-            remoteOrders.push(docSnap.data() as Order);
+            const data = docSnap.data() as Order;
+            // Discard any seeds in remote Firestore as well
+            if (!data.id?.includes('seed')) {
+              remoteOrders.push(data);
+            }
           });
           notifyListeners(remoteOrders, true);
+        } else {
+          // If Firestore is empty, ensure clean state
+          notifyListeners([], true);
         }
       },
       (err) => {
@@ -333,6 +201,21 @@ export function initFirestoreSync() {
     );
   } catch (err) {
     console.warn('[Firestore] Failed to attach realtime listener:', err);
+  }
+}
+
+// Clear all orders or purge fictitious seeds (Called by Staff in Kitchen)
+export async function clearAllOrders(deleteAll = false): Promise<void> {
+  const current = readFromStorage();
+  const nextOrders = deleteAll ? [] : current.filter((o) => !o.id?.includes('seed'));
+  notifyListeners(nextOrders, false);
+
+  try {
+    await fetch(`/api/orders/clear?all=${deleteAll ? 'true' : 'false'}`, {
+      method: 'DELETE',
+    });
+  } catch {
+    // Ignore offline errors
   }
 }
 
