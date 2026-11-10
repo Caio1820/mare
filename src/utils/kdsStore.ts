@@ -6,14 +6,51 @@ import {
   doc,
   setDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   query,
   orderBy,
   limit,
 } from '@firebase/firestore';
 
-const STORAGE_KEY = 'mare_orders_v2';
+const STORAGE_KEY = 'mare_orders_v4';
+const CLEARED_KEY = 'mare_cleared_before_v4';
 const BROADCAST_CHANNEL_NAME = 'mare_restaurant_channel';
+
+// 18 hours max retention for active kitchen display
+const MAX_ACTIVE_ORDER_AGE_MS = 18 * 60 * 60 * 1000;
+
+// Read timestamp before which all orders have been cleared by staff
+export function getClearedBeforeTimestamp(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem(CLEARED_KEY);
+    return raw ? parseInt(raw, 10) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Validator to strictly filter out fictitious seeds, ancient history, and completed/cleared orders
+export function isOrderActiveAndFresh(order: Order): boolean {
+  if (!order || !order.id) return false;
+  if (order.id.includes('seed')) return false;
+
+  // Delivered orders are finished and must never clutter the active kitchen board
+  if (order.status === 'entregue') return false;
+
+  const clearedBefore = getClearedBeforeTimestamp();
+  if (order.createdAt && order.createdAt <= clearedBefore) {
+    return false;
+  }
+
+  const now = Date.now();
+  if (order.createdAt && now - order.createdAt > MAX_ACTIVE_ORDER_AGE_MS) {
+    return false;
+  }
+
+  return true;
+}
 
 // BroadcastChannel for instant cross-tab communication in the same browser (< 5ms)
 let broadcastChannel: BroadcastChannel | null = null;
@@ -25,10 +62,7 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   }
 }
 
-// Initial state is empty for clean production without fictitious orders
-const INITIAL_SEEDED_ORDERS: Order[] = [];
-
-// Helper to safely read from localStorage
+// Helper to safely read active orders from localStorage
 export function readFromStorage(): Order[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -36,8 +70,7 @@ export function readFromStorage(): Order[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        // Filter out any fictitious seeds that were previously stored in this browser
-        const cleanOrders = parsed.filter((o: Order) => !o.id?.includes('seed'));
+        const cleanOrders = parsed.filter(isOrderActiveAndFresh);
         if (cleanOrders.length !== parsed.length) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanOrders));
         }
@@ -50,34 +83,92 @@ export function readFromStorage(): Order[] {
   return [];
 }
 
-// In-memory cache initialized directly from localStorage if present
+// Known order IDs set to completely prevent repeated or false sound chimes
+const knownOrderIds: Set<string> = new Set(readFromStorage().map((o) => o.id));
+let lastBellTime = 0;
+let isInitialSyncDone = false;
+
+// In-memory cache
 let cachedOrders: Order[] = typeof window !== 'undefined' ? readFromStorage() : [];
-let previousOrderCount = cachedOrders.length;
 let eventSource: EventSource | null = null;
 const listeners: Set<(orders: Order[]) => void> = new Set();
 
+// Deduplicate order list by ID and sort newest first
+function deduplicateAndSortOrders(orderList: Order[]): Order[] {
+  const map = new Map<string, Order>();
+
+  for (const ord of orderList) {
+    if (!isOrderActiveAndFresh(ord)) continue;
+
+    const existing = map.get(ord.id);
+    if (!existing) {
+      map.set(ord.id, ord);
+    } else {
+      // Keep whichever has a more advanced status or newer announcement
+      const statusWeight: Record<OrderStatus, number> = {
+        recebido: 1,
+        preparo: 2,
+        pronto: 3,
+        entregue: 4,
+      };
+
+      const existingWeight = statusWeight[existing.status] || 0;
+      const newWeight = statusWeight[ord.status] || 0;
+
+      if (newWeight >= existingWeight) {
+        map.set(ord.id, {
+          ...existing,
+          ...ord,
+          announcedAt: Math.max(existing.announcedAt || 0, ord.announcedAt || 0) || undefined,
+        });
+      }
+    }
+  }
+
+  // Sort newest first
+  return Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
 // Helper to notify all internal listeners and persistent storage
-function notifyListeners(orders: Order[], isRemoteUpdate = false) {
-  // Check if new orders with status 'recebido' arrived that were not in cachedOrders
-  if (cachedOrders.length > 0) {
-    const hasIncomingRecebido = orders.some(
-      (o) => o.status === 'recebido' && !cachedOrders.some((c) => c.id === o.id)
+function notifyListeners(rawOrders: Order[], isRemoteUpdate = false) {
+  const cleanOrders = deduplicateAndSortOrders(rawOrders);
+  const now = Date.now();
+
+  // AUDIO CHIME: Only ring the kitchen bell if:
+  // 1. Initial page load has already completed (no bell on refresh/mount)
+  // 2. An order has status === 'recebido'
+  // 3. The order ID was NOT previously known
+  // 4. The order was freshly created within the last 45 seconds (never ring for historical orders)
+  // 5. At least 3.0 seconds have elapsed since the last bell (debounce)
+  if (isInitialSyncDone && now - lastBellTime > 3000) {
+    const freshIncomingRecebido = cleanOrders.find(
+      (o) =>
+        o.status === 'recebido' &&
+        !knownOrderIds.has(o.id) &&
+        o.createdAt &&
+        now - o.createdAt < 45000
     );
-    if (hasIncomingRecebido) {
+
+    if (freshIncomingRecebido) {
       try {
         playKitchenBell();
+        lastBellTime = now;
       } catch {
         // Ignore audio errors
       }
     }
   }
 
-  previousOrderCount = orders.length;
-  cachedOrders = orders;
+  // Register all current IDs so they never trigger the bell again
+  for (const o of cleanOrders) {
+    knownOrderIds.add(o.id);
+  }
+
+  cachedOrders = cleanOrders;
 
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanOrders));
     } catch {
       // Ignore
     }
@@ -85,7 +176,7 @@ function notifyListeners(orders: Order[], isRemoteUpdate = false) {
 
   for (const listener of listeners) {
     try {
-      listener(orders);
+      listener(cleanOrders);
     } catch (e) {
       console.error('Error in order listener:', e);
     }
@@ -94,14 +185,14 @@ function notifyListeners(orders: Order[], isRemoteUpdate = false) {
   // Cross-tab broadcast via BroadcastChannel
   if (!isRemoteUpdate && broadcastChannel) {
     try {
-      broadcastChannel.postMessage({ type: 'ORDERS_UPDATED', orders });
+      broadcastChannel.postMessage({ type: 'ORDERS_UPDATED', orders: cleanOrders });
     } catch {
       // Ignore
     }
   }
 }
 
-// Initialize SSE connection for real-time push from backend (Cloud Run / Node)
+// Initialize SSE connection for real-time push from backend (Node / Cloud Run)
 function initSSE() {
   if (typeof window === 'undefined') return;
   if (eventSource) return;
@@ -114,6 +205,7 @@ function initSSE() {
         const orders = JSON.parse(event.data);
         if (Array.isArray(orders)) {
           notifyListeners(orders, true);
+          isInitialSyncDone = true;
         }
       } catch (err) {
         console.error('Error parsing SSE data:', err);
@@ -123,7 +215,7 @@ function initSSE() {
     eventSource.onerror = () => {
       eventSource?.close();
       eventSource = null;
-      setTimeout(initSSE, 2500);
+      setTimeout(initSSE, 3500);
     };
   } catch (err) {
     console.error('Failed to init SSE:', err);
@@ -151,23 +243,28 @@ if (typeof window !== 'undefined') {
       } catch {
         // Ignore
       }
+    } else if (event.key === CLEARED_KEY) {
+      // Another tab cleared orders
+      cachedOrders = [];
+      notifyListeners([], true);
     }
   });
 }
 
-// Initial cache load from localStorage or seeds
+// Initial cache load from localStorage
 export function getStoredOrders(): Order[] {
   if (typeof window !== 'undefined') {
     const fromStorage = readFromStorage();
     if (fromStorage.length > 0) {
       cachedOrders = fromStorage;
+      fromStorage.forEach((o) => knownOrderIds.add(o.id));
       return cachedOrders;
     }
   }
   return cachedOrders;
 }
 
-// Firestore real-time synchronization across ALL devices and networks
+// Firestore real-time synchronization across devices
 let firestoreUnsubscribe: (() => void) | null = null;
 
 export function initFirestoreSync() {
@@ -176,7 +273,9 @@ export function initFirestoreSync() {
 
   try {
     const ordersCol = collection(db, 'orders');
-    const q = query(ordersCol, orderBy('createdAt', 'desc'), limit(100));
+    // Limit to 30 most recent documents
+    const q = query(ordersCol, orderBy('createdAt', 'desc'), limit(30));
+
     firestoreUnsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -184,19 +283,20 @@ export function initFirestoreSync() {
           const remoteOrders: Order[] = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data() as Order;
-            // Discard any seeds in remote Firestore as well
-            if (!data.id?.includes('seed')) {
+            // Strictly check if active, not delivered, not seed, not cleared
+            if (isOrderActiveAndFresh(data)) {
               remoteOrders.push(data);
             }
           });
-          notifyListeners(remoteOrders, true);
-        } else {
-          // If Firestore is empty, ensure clean state
-          notifyListeners([], true);
+
+          // Merge cleanly with local cache without clobbering or resurrecting deleted orders
+          const merged = deduplicateAndSortOrders([...remoteOrders, ...cachedOrders]);
+          notifyListeners(merged, true);
+          isInitialSyncDone = true;
         }
       },
       (err) => {
-        console.warn('[Firestore] Realtime sync error, falling back to REST/polling:', err);
+        console.warn('[Firestore] Realtime sync error, falling back to REST/SSE:', err);
       }
     );
   } catch (err) {
@@ -204,12 +304,28 @@ export function initFirestoreSync() {
   }
 }
 
-// Clear all orders or purge fictitious seeds (Called by Staff in Kitchen)
+// Clear all orders (Called by Staff in Kitchen)
 export async function clearAllOrders(deleteAll = false): Promise<void> {
-  const current = readFromStorage();
-  const nextOrders = deleteAll ? [] : current.filter((o) => !o.id?.includes('seed'));
-  notifyListeners(nextOrders, false);
+  const now = Date.now();
+  if (deleteAll) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(CLEARED_KEY, String(now));
+      } catch {
+        // Ignore
+      }
+    }
+    // Record current IDs as cleared
+    cachedOrders.forEach((o) => knownOrderIds.add(o.id));
+    cachedOrders = [];
+    notifyListeners([], false);
+  } else {
+    const current = readFromStorage();
+    const nextOrders = current.filter(isOrderActiveAndFresh);
+    notifyListeners(nextOrders, false);
+  }
 
+  // Delete on server backend
   try {
     await fetch(`/api/orders/clear?all=${deleteAll ? 'true' : 'false'}`, {
       method: 'DELETE',
@@ -217,9 +333,25 @@ export async function clearAllOrders(deleteAll = false): Promise<void> {
   } catch {
     // Ignore offline errors
   }
+
+  // If connected to Firestore and staff clicked clear all, archive or clean remote docs
+  if (deleteAll && db) {
+    try {
+      const currentList = [...cachedOrders];
+      for (const ord of currentList) {
+        try {
+          await deleteDoc(doc(db, 'orders', ord.id));
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
 }
 
-// Sync function called periodically: checks backend API, and if unavailable (e.g. Vercel static), syncs from localStorage
+// Sync function called periodically: checks backend API
 export async function syncOrders(): Promise<Order[]> {
   try {
     const res = await fetch(`/api/orders?t=${Date.now()}`, { cache: 'no-store' });
@@ -227,26 +359,25 @@ export async function syncOrders(): Promise<Order[]> {
       const orders = await res.json();
       if (Array.isArray(orders)) {
         notifyListeners(orders, true);
-        return orders;
+        isInitialSyncDone = true;
+        return cachedOrders;
       }
     }
   } catch {
-    // Backend API offline or static deploy (like Vercel)
+    // Backend API offline or static deploy
   }
 
   // Fallback: check localStorage for any cross-tab changes
   if (typeof window !== 'undefined') {
     const fromStorage = readFromStorage();
-    if (
-      fromStorage.length !== cachedOrders.length ||
-      fromStorage[0]?.id !== cachedOrders[0]?.id ||
-      fromStorage.some((item, i) => item.status !== cachedOrders[i]?.status)
-    ) {
+    if (fromStorage.length !== cachedOrders.length) {
       notifyListeners(fromStorage, true);
+      isInitialSyncDone = true;
       return fromStorage;
     }
   }
 
+  isInitialSyncDone = true;
   return cachedOrders;
 }
 
@@ -269,8 +400,14 @@ export async function createOrder(orderPayload: {
   const now = new Date();
   const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+  // Generate canonical ID on client
+  const orderId = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+  // Mark this ID as already known by this client so we don't play a bell sound for our own creation
+  knownOrderIds.add(orderId);
+
   const localNewOrder: Order = {
-    id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    id: orderId,
     orderNumber: `#${numStr}`,
     customerName: orderPayload.customerName.trim(),
     customerPhone: orderPayload.customerPhone?.trim(),
@@ -288,32 +425,38 @@ export async function createOrder(orderPayload: {
     estimatedMinutes: 15,
   };
 
-  // 1. IMMEDIATELY update local storage, cached orders, and broadcast to other open tabs!
+  // 1. Immediately update local storage and notify local listeners
   const updatedList = [localNewOrder, ...current];
   notifyListeners(updatedList, false);
 
-  // 2. Persist to Firestore in real time for cross-device synchronization (Customer Phone -> Kitchen Tablet)
+  // 2. Persist to Firestore in real time for cross-device sync (Mobile -> Kitchen tablet)
   try {
     const orderDocRef = doc(db, 'orders', localNewOrder.id);
     await setDoc(orderDocRef, localNewOrder);
-    console.log('[Firestore] Pedido sincronizado em tempo real na nuvem:', localNewOrder.orderNumber);
   } catch (firestoreErr) {
     console.warn('[Firestore] Erro ao sincronizar com Firestore:', firestoreErr);
   }
 
-  // 3. In parallel, attempt to sync with backend server if available
+  // 3. Send to backend server with the same ID
   try {
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderPayload),
+      body: JSON.stringify({
+        ...orderPayload,
+        id: localNewOrder.id,
+        createdAt: localNewOrder.createdAt,
+      }),
     });
 
     if (res.ok) {
       const serverOrder: Order = await res.json();
-      // If server returned an order with official sequential ID, replace it smoothly
+      knownOrderIds.add(serverOrder.id);
+
+      // Smoothly replace local order with server order (incorporating official daily sequence #001)
       const synced = updatedList.map((o) => (o.id === localNewOrder.id ? serverOrder : o));
       notifyListeners(synced, false);
+
       try {
         await setDoc(doc(db, 'orders', serverOrder.id), serverOrder);
       } catch {
@@ -345,6 +488,7 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
     }
     return ord;
   });
+
   notifyListeners(updated, false);
 
   // 2. Update Firestore in real time for all devices (Kitchen -> TV Panel / Customer Screen)
@@ -433,7 +577,6 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
     }
     return false;
   } catch {
-    // Offline fallback for admin password check
     return clean.toUpperCase() === 'MARE123';
   }
 }
@@ -441,22 +584,29 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
 // Subscribe to real-time order updates
 export function subscribeToOrders(callback: (orders: Order[]) => void): () => void {
   listeners.add(callback);
+
   // Send current cached orders immediately
-  callback(getStoredOrders());
+  const initial = getStoredOrders();
+  callback(initial);
 
-  // Attach Firestore real-time listener (works across different phones, tablets, networks)
+  // Mark all initial orders as known so they never ring the bell on load
+  initial.forEach((o) => knownOrderIds.add(o.id));
+
+  // Attach Firestore real-time listener
   initFirestoreSync();
-
-  // Run sync immediately
-  syncOrders();
 
   // Ensure SSE is active
   initSSE();
 
-  // Polling sync every 1.5 seconds to guarantee cross-tab and cross-device sync even on static Vercel
+  // Initial sync call
+  syncOrders().then(() => {
+    isInitialSyncDone = true;
+  });
+
+  // Safe background poll every 4 seconds (as fallback if SSE or Firestore hiccups)
   const pollTimer = setInterval(() => {
     syncOrders();
-  }, 1500);
+  }, 4000);
 
   return () => {
     listeners.delete(callback);

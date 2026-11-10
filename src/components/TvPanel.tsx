@@ -48,7 +48,8 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
 
       if (!initialMountRef.current) {
         for (const order of prontoOrders) {
-          const isNewlyReady = !announcedOrderIdsRef.current.has(order.id);
+          const isFresh = order.createdAt ? Date.now() - order.createdAt < 3 * 60 * 60 * 1000 : true;
+          const isNewlyReady = !announcedOrderIdsRef.current.has(order.id) && isFresh;
           const isRecentlyAnnounced = order.announcedAt && (Date.now() - order.announcedAt < 4000);
           if (isNewlyReady || isRecentlyAnnounced) {
             announcedOrderIdsRef.current.add(order.id);

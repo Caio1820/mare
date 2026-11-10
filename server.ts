@@ -35,14 +35,20 @@ function readOrdersFromFile(): any[] {
     }
     const content = fs.readFileSync(ORDERS_FILE, 'utf-8');
     const parsed = JSON.parse(content);
-    // Automatically purge any remaining seed orders from past sessions
     if (Array.isArray(parsed)) {
-      const realOrders = parsed.filter((o: any) => !o.id?.includes('seed'));
-      if (realOrders.length !== parsed.length) {
-        fs.writeFileSync(ORDERS_FILE, JSON.stringify(realOrders, null, 2), 'utf-8');
-        return realOrders;
+      const now = Date.now();
+      const MAX_ACTIVE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+      // Purge seeds and orders older than 24 hours to keep KDS snappy and clean
+      const validOrders = parsed.filter((o: any) => {
+        if (!o || !o.id) return false;
+        if (o.id.includes('seed')) return false;
+        if (o.createdAt && now - o.createdAt > MAX_ACTIVE_AGE_MS) return false;
+        return true;
+      });
+      if (validOrders.length !== parsed.length) {
+        fs.writeFileSync(ORDERS_FILE, JSON.stringify(validOrders, null, 2), 'utf-8');
       }
-      return parsed;
+      return validOrders;
     }
     return [];
   } catch (err) {
@@ -64,7 +70,7 @@ function writeOrdersToFile(orders: any[]) {
 function getNextDailyOrderNumber(): string {
   try {
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    let seqData = { date: today, counter: 3 };
+    let seqData = { date: today, counter: 0 };
 
     if (fs.existsSync(SEQUENCE_FILE)) {
       const raw = fs.readFileSync(SEQUENCE_FILE, 'utf-8');
@@ -203,8 +209,14 @@ async function startServer() {
       const now = new Date();
       const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+      // Reuse client generated ID if provided to prevent duplicate entries and ID desync
+      const orderId =
+        req.body.id && typeof req.body.id === 'string' && req.body.id.trim().length > 0
+          ? req.body.id.trim()
+          : `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
       const newOrder = {
-        id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        id: orderId,
         orderNumber,
         customerName: resolvedName,
         customerPhone: (customerPhone || '').trim() || undefined,
@@ -217,19 +229,27 @@ async function startServer() {
         paymentMethod: paymentMethod || 'balcao',
         paymentStatus: paymentStatus || 'pendente_balcao',
         status: 'recebido', // Todo pedido novo começa como "Recebido"
-        createdAt: Date.now(),
+        createdAt: typeof req.body.createdAt === 'number' ? req.body.createdAt : Date.now(),
         formattedTime,
         estimatedMinutes: 15,
       };
 
       const orders = readOrdersFromFile();
-      const updated = [newOrder, ...orders];
+      // Deduplicate in case client already sent or re-posted
+      const existingIdx = orders.findIndex((o) => o.id === newOrder.id);
+      let updated: any[];
+      if (existingIdx >= 0) {
+        orders[existingIdx] = newOrder;
+        updated = orders;
+      } else {
+        updated = [newOrder, ...orders];
+      }
       writeOrdersToFile(updated);
 
       // Notify all connected screens (Kitchen KDS, TV Panel, Totems) in real time
       broadcastOrdersUpdate(updated);
 
-      console.log(`[Order Created] ${newOrder.orderNumber} for ${newOrder.customerName} (${newOrder.orderType}${newOrder.tableNumber ? ' Mesa ' + newOrder.tableNumber : ''}) - Total: R$ ${newOrder.total}`);
+      console.log(`[Order Created] ${newOrder.orderNumber} (ID: ${newOrder.id}) for ${newOrder.customerName} (${newOrder.orderType}${newOrder.tableNumber ? ' Mesa ' + newOrder.tableNumber : ''}) - Total: R$ ${newOrder.total}`);
 
       res.status(201).json(newOrder);
     } catch (err: any) {
