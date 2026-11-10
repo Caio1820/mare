@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Printer, X, ChefHat, Receipt } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Printer, X, ChefHat, Receipt, Scissors } from 'lucide-react';
 import { Order } from '../types';
 import { playTouchSound } from '../utils/sound';
 
@@ -17,6 +17,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   isInlinePreview = false,
 }) => {
   const [printTarget, setPrintTarget] = useState<'both' | 'kitchen' | 'counter'>('both');
+  const [printingStepLabel, setPrintingStepLabel] = useState<string | null>(null);
   const formattedDate = new Date(order.createdAt).toLocaleString('pt-BR');
 
   const locationLabel =
@@ -26,30 +27,82 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         : `MESA ${order.tableNumber || '01'}`
       : 'PARA VIAGEM';
 
-  useEffect(() => {
-    if (autoPrint) {
-      const timer = setTimeout(() => {
+  // Imprime as duas vias em 2 disparos separados para acionar a guilhotina da impressora em cada via
+  const handlePrint = useCallback((target: 'both' | 'kitchen' | 'counter') => {
+    playTouchSound(550);
+
+    if (target === 'both') {
+      // 1º Disparo: SOMENTE Via da Cozinha -> Aciona o corte automático da bobina
+      setPrintTarget('kitchen');
+      setPrintingStepLabel('Imprimindo 1/2: Via da Cozinha (Destacada)...');
+
+      setTimeout(() => {
+        let secondTriggered = false;
+        const triggerSecondSlip = () => {
+          if (secondTriggered) return;
+          secondTriggered = true;
+          window.removeEventListener('afterprint', triggerSecondSlip);
+
+          // 2º Disparo: SOMENTE Via do Balcão -> Aciona o 2º corte automático da bobina
+          setPrintTarget('counter');
+          setPrintingStepLabel('Imprimindo 2/2: Via do Balcão (Destacada)...');
+
+          setTimeout(() => {
+            try {
+              window.print();
+            } catch {
+              // ignore
+            } finally {
+              setTimeout(() => {
+                setPrintTarget('both');
+                setPrintingStepLabel(null);
+              }, 300);
+            }
+          }, 350);
+        };
+
+        window.addEventListener('afterprint', triggerSecondSlip, { once: true });
+
         try {
           window.print();
         } catch {
-          // ignore
+          triggerSecondSlip();
         }
+      }, 150);
+      return;
+    }
+
+    // Impressão individual (Só Cozinha ou Só Balcão)
+    setPrintTarget(target);
+    setPrintingStepLabel(
+      target === 'kitchen' ? 'Imprimindo Via da Cozinha...' : 'Imprimindo Via do Balcão...'
+    );
+    setTimeout(() => {
+      try {
+        window.print();
+      } catch {
+        // ignore
+      } finally {
+        setTimeout(() => {
+          setPrintTarget('both');
+          setPrintingStepLabel(null);
+        }, 300);
+      }
+    }, 150);
+  }, []);
+
+  useEffect(() => {
+    if (autoPrint) {
+      const timer = setTimeout(() => {
+        handlePrint('both');
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [autoPrint]);
+  }, [autoPrint, handlePrint]);
 
-  const handlePrint = (target: 'both' | 'kitchen' | 'counter') => {
-    playTouchSound(550);
-    setPrintTarget(target);
-    setTimeout(() => {
-      window.print();
-    }, 100);
-  };
-
-  // --- VIA 1: COZINHA (Super compacta para economizar bobina) ---
+  // --- VIA 1: COZINHA (Super compacta e independente) ---
   const kitchenReceipt = (
-    <div className="bg-white text-black font-mono text-[10px] leading-snug p-2.5 w-full max-w-[300px] mx-auto print:max-w-none print:p-0">
+    <div className="bg-white text-black font-mono text-[10px] leading-snug p-2.5 w-full max-w-[300px] mx-auto rounded-lg print:rounded-none print:max-w-none print:p-0">
       <div className="flex items-center justify-between border-b border-dashed border-black pb-1">
         <div>
           <span className="bg-black text-white px-1.5 py-0.5 font-bold uppercase text-[9px]">
@@ -120,9 +173,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     </div>
   );
 
-  // --- VIA 2: BALCÃO / CAIXA (Super compacta) ---
+  // --- VIA 2: BALCÃO / CAIXA (Super compacta e independente) ---
   const counterReceipt = (
-    <div className="bg-white text-black font-mono text-[10px] leading-snug p-2.5 w-full max-w-[300px] mx-auto print:max-w-none print:p-0">
+    <div className="bg-white text-black font-mono text-[10px] leading-snug p-2.5 w-full max-w-[300px] mx-auto rounded-lg print:rounded-none print:max-w-none print:p-0">
       <div className="flex items-center justify-between border-b border-dashed border-black pb-1">
         <div>
           <span className="bg-zinc-900 text-white px-1.5 py-0.5 font-bold uppercase text-[9px]">
@@ -188,7 +241,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
   return (
     <>
-      {/* Regra CSS para Bobina 80mm Contínua (1 Única Página, sem duplicar no PDF) */}
+      {/* Regra CSS para Bobina 80mm com Corte Separado por Via */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page {
@@ -204,11 +257,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
             background: #ffffff !important;
             overflow: visible !important;
           }
-          /* Oculta totalmente o resto do sistema para não gerar 2ª página */
           body *:not(:has(.printable-area)):not(.printable-area):not(.printable-area *) {
             display: none !important;
           }
-          /* Remove position:fixed e limites de altura dos containers pais */
           *:has(.printable-area) {
             position: static !important;
             display: block !important;
@@ -230,8 +281,21 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
             padding: 2mm 0 !important;
             background: #ffffff !important;
           }
-          ${printTarget === 'kitchen' ? '.print-counter-only, .print-cut-line { display: none !important; }' : ''}
-          ${printTarget === 'counter' ? '.print-kitchen-only, .print-cut-line { display: none !important; }' : ''}
+          /* Oculta o aviso visual de corte no papel impresso */
+          .screen-only-divider {
+            display: none !important;
+          }
+          /* Quebra de página explícita caso o usuário use Ctrl+P direto */
+          .print-kitchen-only {
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          .print-counter-only {
+            page-break-before: always !important;
+            break-before: page !important;
+          }
+          ${printTarget === 'kitchen' ? '.print-counter-only { display: none !important; } .print-kitchen-only { page-break-after: auto !important; break-after: auto !important; }' : ''}
+          ${printTarget === 'counter' ? '.print-kitchen-only { display: none !important; } .print-counter-only { page-break-before: auto !important; break-before: auto !important; }' : ''}
         }
       `}} />
 
@@ -253,14 +317,22 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
             )}
           </div>
 
+          {printingStepLabel && (
+            <div className="mb-3 px-3 py-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 animate-pulse">
+              <Scissors className="w-4 h-4" />
+              <span>{printingStepLabel}</span>
+            </div>
+          )}
+
           {/* Preview na tela */}
-          <div className="max-h-[60vh] overflow-y-auto p-2 bg-zinc-950/80 rounded-xl mb-4">
+          <div className="max-h-[58vh] overflow-y-auto p-3 bg-zinc-950/90 rounded-2xl mb-4 border border-zinc-800">
             <div className="printable-area">
               <div className="print-kitchen-only">{kitchenReceipt}</div>
-              
-              {/* Linha de corte entre a via da cozinha e a do balcão */}
-              <div className="print-cut-line py-2 text-center font-mono text-[9px] text-zinc-500 print:text-black select-none">
-                - - - - - - ✂ DESTACAR AQUI - - - - - -
+
+              {/* Aviso apenas na tela (nunca sai impresso no papel) */}
+              <div className="screen-only-divider my-3 py-1.5 px-3 rounded-lg bg-zinc-900 border border-dashed border-amber-500/40 text-center font-mono text-[10px] text-amber-400 flex items-center justify-center gap-1.5 select-none">
+                <Scissors className="w-3.5 h-3.5" />
+                <span>CORTE AUTOMÁTICO DA IMPRESSORA (2 VIAS SEPARADAS)</span>
               </div>
 
               <div className="print-counter-only">{counterReceipt}</div>
@@ -274,7 +346,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
               className="py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all"
             >
               <ChefHat className="w-4 h-4" />
-              <span>Só Cozinha</span>
+              <span>1ª Via: Cozinha</span>
             </button>
 
             <button
@@ -282,15 +354,15 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
               className="py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all"
             >
               <Receipt className="w-4 h-4" />
-              <span>Só Balcão</span>
+              <span>2ª Via: Balcão</span>
             </button>
 
             <button
               onClick={() => handlePrint('both')}
               className="py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-lg shadow-amber-500/20"
             >
-              <Printer className="w-4 h-4" />
-              <span>Imprimir Ambas</span>
+              <Scissors className="w-4 h-4" />
+              <span>Imprimir 2 Vias</span>
             </button>
           </div>
         </div>
