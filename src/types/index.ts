@@ -13,6 +13,8 @@ export interface Product {
   suggestedAddons: AddonItem[];
   badge?: string;
   calories?: string;
+  optionGroupTitle?: string;
+  optionChoices?: string[];
 }
 
 export interface AddonItem {
@@ -28,6 +30,7 @@ export interface CustomizationSelection {
   removedIngredients: string[];
   selectedAddons: { [addonId: string]: number }; // addonId -> quantity
   specialNotes: string;
+  selectedOption?: string;
 }
 
 export interface CustomBurger3DConfig {

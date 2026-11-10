@@ -85,9 +85,25 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
             )}
             {!item.burger3DConfig && item.customization && (
               <div className="text-[9px] pl-2">
-                {item.customization.meatDoneness && <div>• Ponto: {item.customization.meatDoneness}</div>}
+                {item.customization.selectedOption && (
+                  <div className="font-bold uppercase">• OPÇÃO/SABOR: {item.customization.selectedOption}</div>
+                )}
+                {item.product.isBurger && item.customization.meatDoneness && (
+                  <div>• Ponto: {item.customization.meatDoneness}</div>
+                )}
                 {item.customization.removedIngredients.length > 0 && (
                   <div className="font-bold uppercase">• SEM: {item.customization.removedIngredients.join(', ')}</div>
+                )}
+                {Object.keys(item.customization.selectedAddons).length > 0 && (
+                  <div className="font-bold">
+                    • +{' '}
+                    {Object.entries(item.customization.selectedAddons)
+                      .map(([addonId, qty]) => {
+                        const found = item.product.suggestedAddons?.find((a) => a.id === addonId);
+                        return `${qty}x ${found ? found.name : addonId.replace(/_/g, ' ')}`;
+                      })
+                      .join(', ')}
+                  </div>
                 )}
                 {item.customization.specialNotes && <div>• Obs: {item.customization.specialNotes}</div>}
               </div>
@@ -142,9 +158,14 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
       <div className="py-1 border-b border-dashed border-black space-y-0.5">
         {order.items.map((item, idx) => (
-          <div key={idx} className="flex justify-between text-[9px]">
-            <span>{item.quantity}x {item.product.name}</span>
-            <span className="font-bold">R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+          <div key={idx} className="text-[9px]">
+            <div className="flex justify-between">
+              <span>
+                {item.quantity}x {item.product.name}
+                {item.customization?.selectedOption ? ` (${item.customization.selectedOption})` : ''}
+              </span>
+              <span className="font-bold">R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+            </div>
           </div>
         ))}
       </div>

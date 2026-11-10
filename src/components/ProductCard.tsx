@@ -91,18 +91,36 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <p className="mt-1 text-xs sm:text-sm text-zinc-400 line-clamp-2 leading-relaxed">
             {product.description}
           </p>
+
+          {/* Show flavor / option pills when available (e.g. Soda Cans, Juices, Sauces, Combos) */}
+          {product.optionChoices && product.optionChoices.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1">
+              {product.optionChoices.map((choice) => (
+                <span
+                  key={choice}
+                  className="px-2 py-0.5 rounded-md bg-zinc-950/90 border border-amber-500/30 text-[10px] font-semibold text-amber-300"
+                >
+                  {choice}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Touch Button Controls (min touch height >= 44px) */}
         <div className="pt-1.5 sm:pt-2 flex items-center gap-2">
-          {product.isBurger ? (
+          {product.isBurger || (product.optionChoices && product.optionChoices.length > 0) ? (
             <button
               type="button"
               onClick={handleCardClick}
               className="w-full py-2.5 sm:py-3.5 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-zinc-800/90 hover:bg-amber-500 text-zinc-200 hover:text-zinc-950 font-display font-bold text-xs sm:text-sm uppercase tracking-wider border border-zinc-700 hover:border-amber-400 transition-all active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] sm:min-h-[48px] shadow-sm"
             >
               <SlidersHorizontal className="w-4 h-4 text-amber-400 group-hover:text-zinc-950 transition-colors" />
-              <span>Personalizar & Adicionar</span>
+              <span>
+                {product.isBurger
+                  ? 'Personalizar & Adicionar'
+                  : 'Escolher Sabor / Opção'}
+              </span>
             </button>
           ) : (
             <>

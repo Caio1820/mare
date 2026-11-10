@@ -16,6 +16,9 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
 }) => {
   const [quantity, setQuantity] = useState<number>(1);
   const [meatDoneness, setMeatDoneness] = useState<'Ao ponto' | 'Bem passado' | 'Selado'>('Ao ponto');
+  const [selectedOption, setSelectedOption] = useState<string>(
+    product.optionChoices && product.optionChoices.length > 0 ? product.optionChoices[0] : ''
+  );
   const [removedIngredients, setRemovedIngredients] = useState<string[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<{ [addonId: string]: number }>({});
   const [specialNotes, setSpecialNotes] = useState<string>('');
@@ -65,6 +68,7 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
       removedIngredients,
       selectedAddons,
       specialNotes,
+      selectedOption: selectedOption || undefined,
     });
     onClose();
   };
@@ -117,6 +121,47 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
 
         {/* Scrollable Content Body */}
         <div className="flex-1 overflow-y-auto custom-kiosk-scroll p-6 space-y-6">
+          {/* 0. Escolha de Sabor / Opção (Refrigerantes em Lata, Sucos 400ml, Combos, Molho do Petisco, Cervejas) */}
+          {product.optionChoices && product.optionChoices.length > 0 && (
+            <div className="bg-zinc-950/80 border-2 border-amber-500/40 rounded-2xl p-4 sm:p-5 shadow-lg">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <Check className="w-5 h-5 text-amber-400" />
+                  <h4 className="font-display text-base sm:text-lg font-bold text-amber-400 uppercase tracking-wide">
+                    {product.optionGroupTitle || 'Escolha o Sabor / Opção'}
+                  </h4>
+                </div>
+                <span className="text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold uppercase">
+                  Obrigatório
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {product.optionChoices.map((option) => {
+                  const isSelected = selectedOption === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => {
+                        playTouchSound(580);
+                        setSelectedOption(option);
+                      }}
+                      className={`py-3 px-3 rounded-xl text-center font-bold text-xs sm:text-sm border transition-all active:scale-95 min-h-[48px] flex items-center justify-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-md shadow-amber-500/20'
+                          : 'bg-zinc-900 text-zinc-200 border-zinc-800 hover:border-zinc-700'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-4 h-4 stroke-[3] shrink-0" />}
+                      <span className="truncate">{option}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* 1. Ponto da Carne (if burger) */}
           {product.isBurger && (
             <div className="bg-zinc-950/60 border border-zinc-800/80 rounded-2xl p-4 sm:p-5">

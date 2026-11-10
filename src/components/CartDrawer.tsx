@@ -247,7 +247,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 const { customization, product } = item;
                 const hasCustomization =
                   customization &&
-                  (customization.removedIngredients.length > 0 ||
+                  (customization.selectedOption ||
+                    customization.removedIngredients.length > 0 ||
                     Object.keys(customization.selectedAddons).length > 0 ||
                     customization.specialNotes ||
                     product.isBurger);
@@ -302,6 +303,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     {/* Customization Details */}
                     {hasCustomization && customization && (
                       <div className="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800/80 text-[10px] sm:text-[11px] space-y-0.5">
+                        {customization.selectedOption && (
+                          <div className="text-amber-300 font-bold">
+                            <span className="text-zinc-500 font-normal">Sabor / Opção: </span>
+                            <span>{customization.selectedOption}</span>
+                          </div>
+                        )}
+
                         {product.isBurger && (
                           <div className="text-zinc-300">
                             <span className="text-zinc-500">Ponto: </span>

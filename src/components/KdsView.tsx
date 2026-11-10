@@ -705,6 +705,12 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
             {/* Standard Customization Details */}
             {!item.burger3DConfig && item.customization && (
               <div className="pl-7 mt-1 space-y-0.5 text-[11px]">
+                {item.customization.selectedOption && (
+                  <div className="text-amber-300 font-bold bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded inline-block mr-1">
+                    Opção / Sabor: {item.customization.selectedOption}
+                  </div>
+                )}
+
                 {item.product.isBurger && (
                   <div className="text-amber-400 font-bold">
                     Ponto: {item.customization.meatDoneness}
