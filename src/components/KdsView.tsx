@@ -19,11 +19,12 @@ import {
   Volume2,
   Phone,
   Layers,
+  Receipt,
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { subscribeToOrders, updateOrderStatus, verifyAdminPassword, announceOrder, clearAllOrders } from '../utils/kdsStore';
 import { playTouchSound, playKitchenBell, speakOrderReady, unlockAudioContext } from '../utils/sound';
-import { ThermalReceipt } from './ThermalReceipt';
+import { ThermalReceipt, printThermalOrder } from './ThermalReceipt';
 import { StaffGuideModal } from './StaffGuideModal';
 
 interface KdsViewProps {
@@ -758,17 +759,43 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
 
       {/* Bottom Communication Tools: Print Ticket, WhatsApp link & Stage Action Button */}
       <div className="space-y-2 pt-2 border-t border-zinc-850">
-        {/* Dedicated Kitchen Staff Print Button */}
+        {/* Direct 1-Click Separate Cut Buttons + Modal Preview */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            onClick={() => {
+              playTouchSound(550);
+              printThermalOrder(order, 'kitchen');
+            }}
+            className="py-2 px-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-amber-300 border border-zinc-700 hover:border-amber-500/50 text-[11px] font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+            title="Imprimir somente a 1ª Via (Cozinha) já destacada"
+          >
+            <ChefHat className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>1ª Via Cozinha</span>
+          </button>
+
+          <button
+            onClick={() => {
+              playTouchSound(550);
+              printThermalOrder(order, 'counter');
+            }}
+            className="py-2 px-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-amber-300 border border-zinc-700 hover:border-amber-500/50 text-[11px] font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+            title="Imprimir somente a 2ª Via (Balcão/Caixa) já destacada"
+          >
+            <Receipt className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>2ª Via Balcão</span>
+          </button>
+        </div>
+
         <button
           onClick={() => {
             playTouchSound(550);
             onPrint();
           }}
-          className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-amber-300 border border-zinc-700 hover:border-amber-500/50 text-xs font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm"
-          title="Imprimir comanda térmica do pedido (80mm)"
+          className="w-full py-2 px-3 rounded-xl bg-zinc-900/70 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all"
+          title="Abrir visualização das comandas térmicas (80mm)"
         >
-          <Printer className="w-4 h-4 text-amber-400" />
-          <span>Imprimir Comanda (80mm)</span>
+          <Printer className="w-3.5 h-3.5 text-amber-400" />
+          <span>Ver / Imprimir 2 Vias (80mm)</span>
         </button>
 
         {isReady && (
