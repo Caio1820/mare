@@ -11,7 +11,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MARE123';
 
 const DATA_DIR = path.resolve(__dirname, 'data');
@@ -336,21 +336,21 @@ async function startServer() {
     });
   });
 
-  // Static image assets fallback (served directly before Vite middleware)
+  // Static image assets fallback (served directly before Vite middleware with browser cache)
   const publicDir = path.resolve(__dirname, 'public');
   const imagesDir = path.resolve(__dirname, 'public/images');
 
-  app.use('/images', express.static(imagesDir));
-  app.use(express.static(publicDir));
+  app.use('/images', express.static(imagesDir, { maxAge: '1h' }));
+  app.use(express.static(publicDir, { maxAge: '1h' }));
 
-  // Vite development middleware
+  // Vite development middleware or Production static bundle
   const isProd = process.env.NODE_ENV === 'production';
   if (!isProd) {
-    // Share the app's HTTP server so the HMR WebSocket is reachable through the same port/proxy.
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+        hmr: false,
+        watch: null,
       },
       appType: 'spa',
     });
@@ -372,7 +372,7 @@ async function startServer() {
     });
   } else {
     const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, { maxAge: '1h' }));
     app.use((_req: Request, res: Response) => {
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
