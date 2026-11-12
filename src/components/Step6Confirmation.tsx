@@ -1,37 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { CheckCircle2, Clock, ChefHat, Receipt, ArrowRight, Tv, User, Printer } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock,
+  ChefHat,
+  Receipt,
+  ArrowRight,
+  Tv,
+  User,
+  Printer,
+  PlusCircle,
+} from 'lucide-react';
 import { Order } from '../types';
+import { OpenTableSummary } from '../utils/kdsStore';
 import { ThermalReceipt } from './ThermalReceipt';
 import { playTouchSound } from '../utils/sound';
 
 interface Step6ConfirmationProps {
   order: Order;
   onResetToIdle: () => void;
+  openTableSummary?: OpenTableSummary;
+  onOrderMoreOnSameTable?: () => void;
+  onOpenTablesModal?: () => void;
 }
 
 export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
   order,
   onResetToIdle,
+  openTableSummary,
+  onOrderMoreOnSameTable,
+  onOpenTablesModal,
 }) => {
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(10);
-  const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(false);
-  const [hasAutoPrinted, setHasAutoPrinted] = useState<boolean>(false);
+  const isNumberedTable =
+    order.orderType === 'local' &&
+    order.tableNumber &&
+    order.tableNumber.toLowerCase() !== 'balcão' &&
+    order.tableNumber.toLowerCase() !== 'balcao';
 
-  // Auto trigger thermal print on mount for Pix paid orders
-  useEffect(() => {
-    if (!hasAutoPrinted && order.paymentStatus === 'pago') {
-      setHasAutoPrinted(true);
-      const printTimer = setTimeout(() => {
-        try {
-          window.print();
-        } catch {
-          // ignore
-        }
-      }, 700);
-      return () => clearTimeout(printTimer);
-    }
-  }, [hasAutoPrinted, order]);
+  const totalCountdownSeconds = isNumberedTable ? 25 : 12;
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(totalCountdownSeconds);
+  const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(false);
 
   // Trigger celebration confetti on arrival
   useEffect(() => {
@@ -47,8 +55,9 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
     }
   }, []);
 
-  // 10-second automatic countdown to Step 1 (Idle Screen)
+  // Automatic countdown to Step 1 (Idle Screen), paused while receipt modal is open
   useEffect(() => {
+    if (isReceiptOpen) return;
     if (secondsRemaining <= 0) {
       onResetToIdle();
       return;
@@ -59,61 +68,115 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [secondsRemaining, onResetToIdle]);
+  }, [secondsRemaining, onResetToIdle, isReceiptOpen]);
 
-  const progressPercentage = ((10 - secondsRemaining) / 10) * 100;
+  const progressPercentage =
+    ((totalCountdownSeconds - secondsRemaining) / totalCountdownSeconds) * 100;
 
   return (
     <div className="min-h-[calc(100dvh-54px)] sm:min-h-[calc(100vh-65px)] bg-zinc-950 p-4 sm:p-10 max-w-4xl mx-auto w-full flex flex-col justify-between items-center text-center pb-safe overflow-y-auto">
       {/* Top Success Badge */}
       <div className="space-y-2 sm:space-y-3 max-w-2xl py-2">
-        <div className="w-14 h-14 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 shadow-2xl shadow-emerald-500/10 animate-bounce">
-          <CheckCircle2 className="w-8 h-8 sm:w-12 sm:h-12 stroke-[2.5]" />
+        <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 shadow-2xl shadow-emerald-500/10 animate-bounce">
+          <CheckCircle2 className="w-8 h-8 sm:w-11 sm:h-11 stroke-[2.5]" />
         </div>
 
         <div>
           <span className="text-[10px] sm:text-xs uppercase font-extrabold text-amber-400 tracking-widest block">
-            Pedido Confirmado com Sucesso!
+            {order.roundNumber && order.roundNumber > 1
+              ? `${order.roundNumber}º Pedido Adicionado à Mesa ${order.tableNumber}!`
+              : 'Pedido Confirmado com Sucesso!'}
           </span>
           <h2 className="font-display text-2xl sm:text-5xl font-black uppercase text-zinc-100 mt-1">
             Pedido <span className="text-amber-400">{order.orderNumber}</span> na cozinha!
           </h2>
           <div className="mt-1.5 inline-flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full text-zinc-200 text-xs sm:text-sm font-semibold">
             <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-            <span>Cliente: <strong className="text-white">{order.customerName}</strong></span>
+            <span>
+              Cliente: <strong className="text-white">{order.customerName}</strong>
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Main Attention Callout Box: Exact requested message */}
-      <div className="my-3 sm:my-6 w-full max-w-xl bg-gradient-to-r from-amber-500/15 via-zinc-900 to-amber-500/15 border-2 border-amber-500/70 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden">
+      {/* Main Attention Callout Box */}
+      <div className="my-3 sm:my-5 w-full max-w-xl bg-gradient-to-r from-amber-500/15 via-zinc-900 to-amber-500/15 border-2 border-amber-500/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-2xl relative overflow-hidden">
         <div className="flex items-center justify-center gap-2 text-amber-400 text-[10px] sm:text-xs uppercase font-bold tracking-widest mb-1 sm:mb-2">
           <Tv className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
           <span>Fique Atento ao Painel de TV</span>
         </div>
 
         {/* Big Order Number */}
-        <div className="font-display text-6xl sm:text-8xl font-black text-amber-400 tracking-widest py-1 select-all drop-shadow-md">
+        <div className="font-display text-6xl sm:text-7xl font-black text-amber-400 tracking-widest py-1 select-all drop-shadow-md">
           {order.orderNumber}
         </div>
 
         {/* Big Customer Name */}
-        <div className="font-display text-xl sm:text-3xl font-bold uppercase text-zinc-100 tracking-wide">
+        <div className="font-display text-xl sm:text-2xl font-bold uppercase text-zinc-100 tracking-wide">
           {order.customerName}
         </div>
 
-        {/* Counter Payment Callout Banner */}
-        <div className="mt-3 sm:mt-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-500/20 border-2 border-amber-400 text-amber-200 font-bold text-sm sm:text-base leading-snug flex items-center justify-center gap-2 shadow-lg">
-          <span className="text-xl">💳</span>
-          <span>PAGAMENTO NO BALCÃO: Dirija-se ao caixa com a sua senha para efetuar o pagamento.</span>
-        </div>
+        {/* Open Table Callout Banner */}
+        {isNumberedTable ? (
+          <div className="mt-3 sm:mt-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-500/15 border-2 border-emerald-500/60 text-emerald-200 text-left space-y-2 shadow-lg">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-display font-black text-sm sm:text-base uppercase text-emerald-300 flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                Mesa {order.tableNumber} Permanece Aberta!
+              </span>
+              {openTableSummary && (
+                <span className="font-mono text-xs sm:text-sm font-black text-amber-400 bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800">
+                  Total Mesa: R$ {openTableSummary.totalAmount.toFixed(2).replace('.', ',')}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-200 leading-relaxed">
+              Você pode pedir mais bebidas, porções ou outros itens a qualquer momento durante o seu consumo basta selecionar a <strong>Mesa {order.tableNumber}</strong>. O pagamento total é feito no balcão ao encerrar!
+            </p>
+
+            {onOrderMoreOnSameTable && (
+              <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => {
+                    playTouchSound(620);
+                    onOrderMoreOnSameTable();
+                  }}
+                  className="flex-1 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-display font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md"
+                >
+                  <PlusCircle className="w-4 h-4 stroke-[2.5]" />
+                  <span>Pedir Mais Itens na Mesa {order.tableNumber}</span>
+                </button>
+
+                {onOpenTablesModal && (
+                  <button
+                    onClick={() => {
+                      playTouchSound(550);
+                      onOpenTablesModal();
+                    }}
+                    className="py-3 px-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-emerald-300 border border-emerald-500/40 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <Receipt className="w-4 h-4" />
+                    <span>Ver Conta da Mesa</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="mt-3 sm:mt-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-500/20 border-2 border-amber-400 text-amber-200 font-bold text-sm sm:text-base leading-snug flex items-center justify-center gap-2 shadow-lg">
+            <span className="text-xl">💳</span>
+            <span>
+              PAGAMENTO NO BALCÃO: Dirija-se ao caixa com a sua senha para efetuar o pagamento.
+            </span>
+          </div>
+        )}
 
         {/* Required Message Banner */}
-        <div className="mt-2.5 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-zinc-950/80 border border-amber-500/30 text-amber-300 font-semibold text-xs sm:text-sm leading-snug">
+        <div className="mt-2.5 p-3 rounded-xl bg-zinc-950/80 border border-amber-500/30 text-amber-300 font-semibold text-xs sm:text-sm leading-snug">
           "Acompanhe o painel, vamos chamar você quando estiver pronto."
         </div>
 
-        <div className="mt-3 sm:mt-5 flex items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-zinc-400">
+        <div className="mt-3 sm:mt-4 flex items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-zinc-400">
           <span className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
             Preparo ~15 min
@@ -126,7 +189,7 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
         </div>
 
         {/* Thermal Receipt trigger */}
-        <div className="mt-4 sm:mt-6">
+        <div className="mt-4">
           <button
             onClick={() => {
               playTouchSound(550);
@@ -144,7 +207,7 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
       <div className="w-full max-w-md space-y-3 sm:space-y-4 py-2">
         <div>
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-zinc-400 font-medium mb-1">
-            <span>Retornando em</span>
+            <span>Retornando ao início em</span>
             <span className="font-mono font-bold text-amber-400">{secondsRemaining} segundos</span>
           </div>
 
@@ -164,7 +227,7 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
           }}
           className="w-full py-3 sm:py-4 px-6 rounded-xl sm:rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-display font-bold text-sm sm:text-base uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all min-h-[48px] sm:min-h-[52px]"
         >
-          <span>Iniciar Novo Pedido</span>
+          <span>Voltar para a Tela Inicial</span>
           <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
         </button>
       </div>
@@ -174,3 +237,4 @@ export const Step6Confirmation: React.FC<Step6ConfirmationProps> = ({
     </div>
   );
 };
+

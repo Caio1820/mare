@@ -120,10 +120,10 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto custom-kiosk-scroll p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto custom-kiosk-scroll p-3.5 sm:p-6 space-y-4 sm:space-y-6">
           {/* 0. Escolha de Sabor / Opção (Refrigerantes em Lata, Sucos 400ml, Combos, Molho do Petisco, Cervejas) */}
           {product.optionChoices && product.optionChoices.length > 0 && (
-            <div className="bg-zinc-950/80 border-2 border-amber-500/40 rounded-2xl p-4 sm:p-5 shadow-lg">
+            <div className="bg-zinc-950/80 border-2 border-amber-500/40 rounded-2xl p-3.5 sm:p-5 shadow-lg">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
                   <Check className="w-5 h-5 text-amber-400" />

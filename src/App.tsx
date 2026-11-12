@@ -19,8 +19,8 @@ import { Step6Confirmation } from './components/Step6Confirmation';
 import { KdsView } from './components/KdsView';
 import { TvPanel } from './components/TvPanel';
 import { UpSellModal } from './components/UpSellModal';
-import { StaffGuideModal } from './components/StaffGuideModal';
-import { createOrder } from './utils/kdsStore';
+import { OpenTablesModal } from './components/OpenTablesModal';
+import { createOrder, subscribeToOrders, getOpenTablesMap } from './utils/kdsStore';
 
 function getScreenFromUrl(): AppScreen {
   if (typeof window === 'undefined') return 'autoatendimento';
@@ -107,7 +107,19 @@ export default function App() {
   const [isUpSellModalOpen, setIsUpSellModalOpen] = useState<boolean>(false);
   const [hasDismissedUpSell, setHasDismissedUpSell] = useState<boolean>(false);
   const [lastConfirmedOrder, setLastConfirmedOrder] = useState<Order | null>(null);
-  const [isStaffGuideOpen, setIsStaffGuideOpen] = useState<boolean>(false);
+  const [isTablesModalOpen, setIsTablesModalOpen] = useState<boolean>(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  // Subscribe to real-time orders so Open Tables are always synced across Totem & QR Code
+  useEffect(() => {
+    const unsubscribe = subscribeToOrders((liveOrders) => {
+      setOrders(liveOrders);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const openTablesMap = useMemo(() => getOpenTablesMap(orders), [orders]);
+  const openTablesCount = useMemo(() => Object.keys(openTablesMap).length, [openTablesMap]);
 
   // Sync with browser URL changes (pathname or hash)
   useEffect(() => {
@@ -152,6 +164,19 @@ export default function App() {
   const handleSelectOrderType = (type: OrderType, table?: string) => {
     setOrderType(type);
     if (table) setTableNumber(table);
+    setCurrentStep('menu');
+  };
+
+  // Select Table directly from OpenTablesModal (or from KDS "Pedir + Itens")
+  const handleSelectTableForOrder = (tbl: string) => {
+    setActiveScreen('autoatendimento');
+    try {
+      window.location.hash = '#/';
+    } catch {
+      // ignore
+    }
+    setOrderType('local');
+    setTableNumber(tbl);
     setCurrentStep('menu');
   };
 
@@ -226,10 +251,10 @@ export default function App() {
     handleAddToCart(product, 1);
   };
 
-  // Order Confirmed & Sent to KDS & Database with Counter Payment
+  // Order Confirmed & Sent to KDS & Database with Counter Payment / Open Table
   const handleConfirmPayment = async (
-    method: PaymentMethod = 'balcao',
-    isPaidImmediately: boolean = false,
+    _method: PaymentMethod = 'balcao',
+    _isPaidImmediately: boolean = false,
     customerName: string = 'Cliente Balcão',
     observations: string = '',
     customerPhone?: string
@@ -256,7 +281,7 @@ export default function App() {
     }
   };
 
-  // Reset to Step 1 Idle
+  // Reset to Step 1 Idle (Open Tables stay open in the store!)
   const handleResetToIdle = useCallback(() => {
     setCurrentStep('idle');
     setOrderType(null);
@@ -279,7 +304,10 @@ export default function App() {
         <TvPanel onBackToKiosk={() => handleNavigateScreen('autoatendimento')} />
       ) : activeScreen === 'cozinha' ? (
         /* 2. KITCHEN KDS SCREEN (protected by password) */
-        <KdsView onBackToKiosk={() => handleNavigateScreen('autoatendimento')} />
+        <KdsView
+          onBackToKiosk={() => handleNavigateScreen('autoatendimento')}
+          onOrderForTable={(tbl) => handleSelectTableForOrder(tbl)}
+        />
       ) : (
         /* 3. AUTOATENDIMENTO (KIOSK) SCREEN */
         <>
@@ -292,12 +320,19 @@ export default function App() {
             onNavigateScreen={handleNavigateScreen}
             cartCount={cartCount}
             onChangeOrderType={handleChangeOrderType}
-            onOpenStaffGuide={() => setIsStaffGuideOpen(true)}
+            onOpenTablesModal={() => setIsTablesModalOpen(true)}
+            openTablesCount={openTablesCount}
           />
 
           <main className="flex-1 flex flex-col">
             {/* Step 1: Idle Attract Screen */}
-            {currentStep === 'idle' && <Step1Idle onStart={handleStartOrder} />}
+            {currentStep === 'idle' && (
+              <Step1Idle
+                onStart={handleStartOrder}
+                onOpenTablesModal={() => setIsTablesModalOpen(true)}
+                openTablesCount={openTablesCount}
+              />
+            )}
 
             {/* Step 2: Order Type & Table Picker */}
             {currentStep === 'order_type' && (
@@ -313,6 +348,8 @@ export default function App() {
                 initialType={orderType}
                 initialTable={tableNumber}
                 hasCartItems={cartItems.length > 0}
+                openTablesMap={openTablesMap}
+                onOpenTablesModal={() => setIsTablesModalOpen(true)}
               />
             )}
 
@@ -327,6 +364,12 @@ export default function App() {
                 orderType={orderType}
                 tableNumber={tableNumber}
                 onChangeOrderType={handleChangeOrderType}
+                openTableSummary={
+                  orderType === 'local' && tableNumber !== 'Balcão'
+                    ? openTablesMap[tableNumber]
+                    : undefined
+                }
+                onOpenTablesModal={() => setIsTablesModalOpen(true)}
               />
             )}
 
@@ -348,6 +391,19 @@ export default function App() {
               <Step6Confirmation
                 order={lastConfirmedOrder}
                 onResetToIdle={handleResetToIdle}
+                openTableSummary={
+                  lastConfirmedOrder.orderType === 'local' &&
+                  lastConfirmedOrder.tableNumber &&
+                  lastConfirmedOrder.tableNumber !== 'Balcão'
+                    ? openTablesMap[lastConfirmedOrder.tableNumber]
+                    : undefined
+                }
+                onOrderMoreOnSameTable={() => {
+                  if (lastConfirmedOrder.tableNumber) {
+                    handleSelectTableForOrder(lastConfirmedOrder.tableNumber);
+                  }
+                }}
+                onOpenTablesModal={() => setIsTablesModalOpen(true)}
               />
             )}
 
@@ -366,6 +422,7 @@ export default function App() {
               onConfirmOrderAtCounter={(name, obs) =>
                 handleConfirmPayment('balcao', false, name, obs)
               }
+              openTablesMap={openTablesMap}
             />
 
             {/* Strategic Up-Sell Modal */}
@@ -378,11 +435,14 @@ export default function App() {
               />
             )}
 
-            {/* Staff Training / Operation Guide Modal */}
-            <StaffGuideModal
-              isOpen={isStaffGuideOpen}
-              onClose={() => setIsStaffGuideOpen(false)}
-              defaultTab="geral"
+            {/* Open Tables Modal (Customer & Waiter View) */}
+            <OpenTablesModal
+              isOpen={isTablesModalOpen}
+              onClose={() => setIsTablesModalOpen(false)}
+              orders={orders}
+              activeTableNumber={orderType === 'local' ? tableNumber : undefined}
+              onSelectTableForOrder={(tbl) => handleSelectTableForOrder(tbl)}
+              isStaffMode={false}
             />
           </main>
         </>
@@ -390,3 +450,4 @@ export default function App() {
     </div>
   );
 }
+

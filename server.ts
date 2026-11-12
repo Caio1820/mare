@@ -215,6 +215,23 @@ async function startServer() {
           ? req.body.id.trim()
           : `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
+      const orders = readOrdersFromFile();
+      const isNumberedTable =
+        (orderType || 'local') === 'local' &&
+        resolvedTable &&
+        resolvedTable.toLowerCase() !== 'balcão' &&
+        resolvedTable.toLowerCase() !== 'balcao';
+
+      const existingOpenTableOrders = isNumberedTable
+        ? orders.filter(
+            (o) =>
+              o.orderType === 'local' &&
+              o.tableNumber === resolvedTable &&
+              !o.tableClosed &&
+              o.id !== orderId
+          )
+        : [];
+
       const newOrder = {
         id: orderId,
         orderNumber,
@@ -232,9 +249,10 @@ async function startServer() {
         createdAt: typeof req.body.createdAt === 'number' ? req.body.createdAt : Date.now(),
         formattedTime,
         estimatedMinutes: 15,
+        tableClosed: false,
+        roundNumber: isNumberedTable ? existingOpenTableOrders.length + 1 : 1,
       };
 
-      const orders = readOrdersFromFile();
       // Deduplicate in case client already sent or re-posted
       const existingIdx = orders.findIndex((o) => o.id === newOrder.id);
       let updated: any[];
@@ -289,6 +307,49 @@ async function startServer() {
     } catch (err) {
       console.error('Error updating order status:', err);
       res.status(500).json({ error: 'Erro ao atualizar status.' });
+    }
+  });
+
+  // POST close and settle all open orders for a table (Fechar Conta da Mesa)
+  app.post('/api/tables/:tableNumber/close', (req: Request, res: Response) => {
+    try {
+      const { tableNumber } = req.params;
+      const { paymentMethod } = req.body || {};
+      const cleanTable = String(tableNumber || '').trim();
+
+      const orders = readOrdersFromFile();
+      let closedCount = 0;
+
+      const updated = orders.map((o) => {
+        if (
+          o.orderType === 'local' &&
+          String(o.tableNumber || '').trim() === cleanTable &&
+          !o.tableClosed
+        ) {
+          closedCount++;
+          return {
+            ...o,
+            tableClosed: true,
+            status: 'entregue',
+            paymentStatus: 'pago',
+            paymentMethod: paymentMethod || o.paymentMethod || 'balcao',
+          };
+        }
+        return o;
+      });
+
+      writeOrdersToFile(updated);
+      broadcastOrdersUpdate(updated);
+
+      res.json({
+        success: true,
+        tableNumber: cleanTable,
+        closedCount,
+        message: `Mesa ${cleanTable} encerrada e liberada com sucesso.`,
+      });
+    } catch (err) {
+      console.error('Error closing table:', err);
+      res.status(500).json({ error: 'Erro ao fechar mesa.' });
     }
   });
 

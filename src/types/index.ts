@@ -87,6 +87,8 @@ export interface Order {
   estimatedMinutes?: number;
   announcedAt?: number; // timestamp when called on TV panel
   autoPrinted?: boolean; // whether thermal ticket was sent to print
+  tableClosed?: boolean; // true when the table tab has been paid and closed
+  roundNumber?: number; // 1st order, 2nd order, etc. for the same open table
 }
 
 export type KioskStep = 

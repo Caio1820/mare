@@ -20,20 +20,29 @@ import {
   Phone,
   Layers,
   Receipt,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
-import { subscribeToOrders, updateOrderStatus, verifyAdminPassword, announceOrder, clearAllOrders } from '../utils/kdsStore';
+import {
+  subscribeToOrders,
+  updateOrderStatus,
+  verifyAdminPassword,
+  announceOrder,
+  clearAllOrders,
+  getOpenTablesMap,
+} from '../utils/kdsStore';
 import { playTouchSound, playKitchenBell, speakOrderReady, unlockAudioContext } from '../utils/sound';
 import { ThermalReceipt, printThermalOrder } from './ThermalReceipt';
-import { StaffGuideModal } from './StaffGuideModal';
+import { OpenTablesModal } from './OpenTablesModal';
 
 interface KdsViewProps {
   onBackToKiosk: () => void;
+  onOrderForTable?: (tableNumber: string, existingCustomerName?: string) => void;
 }
 
 const AUTH_STORAGE_KEY = 'mare_kitchen_auth_session';
 
-export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
+export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return sessionStorage.getItem(AUTH_STORAGE_KEY) === 'true';
@@ -49,7 +58,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
   const [mobileTab, setMobileTab] = useState<'recebido' | 'preparo' | 'pronto'>('recebido');
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
   const [lastAnnouncedId, setLastAnnouncedId] = useState<string | null>(null);
-  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+  const [isTablesModalOpen, setIsTablesModalOpen] = useState<boolean>(false);
 
   // Real-time time updater for elapsed minute calculation
   useEffect(() => {
@@ -246,154 +255,170 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
   const recebidos = orders.filter((o) => o.status === 'recebido');
   const preparo = orders.filter((o) => o.status === 'preparo');
   const pronto = orders.filter((o) => o.status === 'pronto');
+  const openTablesMap = getOpenTablesMap(orders);
+  const openTablesCount = Object.keys(openTablesMap).length;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-      {/* Header with prominent SAIR button */}
-      <header className="bg-zinc-900 border-b border-zinc-800 px-4 sm:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 rounded-full border-2 border-amber-500/50 p-0.5 bg-zinc-950 overflow-hidden shadow-md flex items-center justify-center shrink-0">
-            <img
-              src="/images/mare_round_logo_trans.png"
-              alt="Maré"
-              className="w-full h-full object-cover rounded-full"
-              onError={(e) => {
-                const target = e.currentTarget;
-                target.src = '/images/mare_round_logo.jpg';
-              }}
-            />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-wider text-zinc-100">
-                Linha de Produção & Recepção
-              </h1>
-              <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider">
-                Ao Vivo
-              </span>
+      {/* Unified Sticky Top Wrapper (Header + Mobile Column Tabs) so they never overlap on mobile */}
+      <div className="sticky top-0 z-20 bg-zinc-900/95 backdrop-blur-md border-b border-zinc-800">
+        <header className="px-3 sm:px-8 py-2.5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-amber-500/50 p-0.5 bg-zinc-950 overflow-hidden shadow-md flex items-center justify-center shrink-0">
+                <img
+                  src="/images/mare_round_logo_trans.png"
+                  alt="Maré"
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.src = '/images/mare_round_logo.jpg';
+                  }}
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="font-display text-base sm:text-2xl font-bold uppercase tracking-wider text-zinc-100 truncate">
+                    Cozinha & Recepção
+                  </h1>
+                  <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider">
+                    Ao Vivo
+                  </span>
+                </div>
+                <span className="text-[10px] sm:text-xs text-zinc-400 font-medium hidden xs:block truncate">
+                  Maré Hambúrgueria · KDS, Mesas Abertas & Impressão 80mm
+                </span>
+              </div>
             </div>
-            <span className="text-xs text-zinc-400 font-medium">
-              Maré Hambúrgueria · Chamada de Senhas & Impressão Térmica
-            </span>
+
+            {/* Mobile Sair quick button */}
+            <button
+              onClick={handleLogout}
+              className="sm:hidden px-2.5 py-1.5 rounded-xl bg-red-950/60 text-red-200 border border-red-800 font-display font-bold text-[11px] uppercase tracking-wider flex items-center gap-1 active:scale-95 shrink-0"
+              title="Encerrar sessão"
+            >
+              <LogOut className="w-3.5 h-3.5 text-red-400" />
+              <span>Sair</span>
+            </button>
           </div>
+
+          {/* Action Controls (Scrollable single row on mobile) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0">
+            {/* MESAS ABERTAS (CONTROLE DE CONTAS DE MESA) */}
+            <button
+              onClick={() => {
+                playTouchSound(580);
+                setIsTablesModalOpen(true);
+              }}
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 text-[11px] sm:text-xs font-bold transition-all active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
+              title="Gerenciar Mesas Abertas, Conferência e Fechamento de Conta"
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
+              <span>Mesas ({openTablesCount}/11)</span>
+            </button>
+
+            {/* LIMPAR FILA */}
+            <button
+              onClick={() => {
+                playTouchSound(450);
+                if (window.confirm('Deseja limpar todos os pedidos finalizados/entregues da fila da cozinha?')) {
+                  clearAllOrders(false);
+                }
+              }}
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 border border-zinc-700 flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold whitespace-nowrap shrink-0 min-h-[36px]"
+              title="Limpar pedidos antigos"
+            >
+              <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400 shrink-0" />
+              <span>Limpar</span>
+            </button>
+
+            <button
+              onClick={() => {
+                playKitchenBell();
+              }}
+              title="Testar alarme sonoro"
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold whitespace-nowrap shrink-0 min-h-[36px]"
+            >
+              <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>Som</span>
+            </button>
+
+            <button
+              onClick={() => {
+                playTouchSound(500);
+                onBackToKiosk();
+              }}
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 font-semibold text-[11px] sm:text-xs border border-zinc-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 min-h-[36px]"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
+              <span>Cardápio</span>
+            </button>
+
+            {/* REQUIRED PROMINENT SAIR BUTTON (Desktop) */}
+            <button
+              onClick={handleLogout}
+              className="hidden sm:flex px-3.5 py-2 rounded-xl bg-red-950/50 hover:bg-red-900/60 text-red-200 border border-red-800 font-display font-bold text-xs uppercase tracking-wider items-center gap-1.5 active:scale-95 transition-all shrink-0"
+              title="Encerrar sessão de administrador"
+            >
+              <LogOut className="w-4 h-4 text-red-400" />
+              <span>Sair</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Mobile Column Tab Switcher */}
+        <div className="md:hidden bg-zinc-950/90 border-t border-zinc-800/80 px-2.5 py-1.5 flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              playTouchSound(520);
+              setMobileTab('recebido');
+            }}
+            className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[40px] ${
+              mobileTab === 'recebido'
+                ? 'bg-amber-500 text-zinc-950 shadow-md'
+                : 'bg-zinc-800 text-zinc-400'
+            }`}
+          >
+            <span>1. Recebido</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
+              {recebidos.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              playTouchSound(520);
+              setMobileTab('preparo');
+            }}
+            className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[40px] ${
+              mobileTab === 'preparo'
+                ? 'bg-orange-500 text-zinc-950 shadow-md'
+                : 'bg-zinc-800 text-zinc-400'
+            }`}
+          >
+            <span>2. Preparo</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
+              {preparo.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              playTouchSound(520);
+              setMobileTab('pronto');
+            }}
+            className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[40px] ${
+              mobileTab === 'pronto'
+                ? 'bg-emerald-500 text-zinc-950 shadow-md'
+                : 'bg-zinc-800 text-zinc-400'
+            }`}
+          >
+            <span>3. Pronto</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
+              {pronto.length}
+            </span>
+          </button>
         </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
-          {/* GUIA DA EQUIPE */}
-          <button
-            onClick={() => {
-              playTouchSound(550);
-              setIsGuideOpen(true);
-            }}
-            className="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95"
-            title="Abrir Manual de Treinamento da Equipe"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="hidden sm:inline">Guia Equipe</span>
-          </button>
-
-          {/* LIMPAR FILA */}
-          <button
-            onClick={() => {
-              playTouchSound(450);
-              if (window.confirm('Deseja limpar todos os pedidos finalizados/entregues da fila da cozinha?')) {
-                clearAllOrders(false);
-              }
-            }}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 border border-zinc-700 flex items-center gap-1.5 text-xs font-semibold"
-            title="Limpar pedidos antigos"
-          >
-            <Layers className="w-4 h-4 text-zinc-400" />
-            <span className="hidden md:inline">Limpar Fila</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playKitchenBell();
-            }}
-            title="Testar alarme sonoro"
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex items-center gap-1.5 text-xs font-semibold"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="hidden md:inline">Testar Som</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playTouchSound(500);
-              onBackToKiosk();
-            }}
-            className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 font-semibold text-xs border border-zinc-700 flex items-center gap-1.5"
-          >
-            <ArrowLeft className="w-4 h-4 text-amber-500" />
-            <span className="hidden sm:inline">Totem</span>
-          </button>
-
-          {/* REQUIRED PROMINENT SAIR BUTTON */}
-          <button
-            onClick={handleLogout}
-            className="px-3.5 py-2 rounded-xl bg-red-950/50 hover:bg-red-900/60 text-red-200 border border-red-800 font-display font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all"
-            title="Encerrar sessão de administrador"
-          >
-            <LogOut className="w-4 h-4 text-red-400" />
-            <span>Sair</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Mobile Column Tab Switcher */}
-      <div className="md:hidden bg-zinc-900/95 backdrop-blur-md border-b border-zinc-800 p-2 flex items-center gap-1.5 sticky top-[60px] z-10">
-        <button
-          onClick={() => {
-            playTouchSound(520);
-            setMobileTab('recebido');
-          }}
-          className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[42px] ${
-            mobileTab === 'recebido'
-              ? 'bg-amber-500 text-zinc-950 shadow-md'
-              : 'bg-zinc-800 text-zinc-400'
-          }`}
-        >
-          <span>1. Recebido</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
-            {recebidos.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => {
-            playTouchSound(520);
-            setMobileTab('preparo');
-          }}
-          className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[42px] ${
-            mobileTab === 'preparo'
-              ? 'bg-orange-500 text-zinc-950 shadow-md'
-              : 'bg-zinc-800 text-zinc-400'
-          }`}
-        >
-          <span>2. Preparo</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
-            {preparo.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => {
-            playTouchSound(520);
-            setMobileTab('pronto');
-          }}
-          className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[42px] ${
-            mobileTab === 'pronto'
-              ? 'bg-emerald-500 text-zinc-950 shadow-md'
-              : 'bg-zinc-800 text-zinc-400'
-          }`}
-        >
-          <span>3. Pronto</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
-            {pronto.length}
-          </span>
-        </button>
       </div>
 
       {/* Main Production Columns */}
@@ -566,11 +591,19 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk }) => {
         />
       )}
 
-      {/* Staff Guide Modal */}
-      <StaffGuideModal
-        isOpen={isGuideOpen}
-        onClose={() => setIsGuideOpen(false)}
-        defaultTab="cozinha"
+      {/* Open Tables Management Modal (Staff Mode) */}
+      <OpenTablesModal
+        isOpen={isTablesModalOpen}
+        onClose={() => setIsTablesModalOpen(false)}
+        orders={orders}
+        isStaffMode={true}
+        onSelectTableForOrder={(tbl, existingName) => {
+          if (onOrderForTable) {
+            onOrderForTable(tbl, existingName);
+          } else {
+            onBackToKiosk();
+          }
+        }}
       />
     </div>
   );
@@ -623,16 +656,23 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
       {/* Top Card Header: Order Number, Customer Name & Time */}
       <div className="flex items-start justify-between gap-2 border-b border-zinc-850 pb-2.5">
         <div>
-          <span className="font-display text-3xl font-black text-amber-400 tracking-wider block">
-            {order.orderNumber}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-display text-3xl font-black text-amber-400 tracking-wider block">
+              {order.orderNumber}
+            </span>
+            {order.roundNumber && order.roundNumber > 1 && (
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold uppercase">
+                ★ {order.roundNumber}º Pedido da Mesa
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 text-zinc-100 font-bold text-base mt-0.5">
             <User className="w-4 h-4 text-zinc-400 shrink-0" />
             <span className="truncate">{order.customerName}</span>
           </div>
           <span className="text-[11px] text-zinc-400 block font-medium">
             {order.orderType === 'local'
-              ? `Mesa ${order.tableNumber || '01'} · Salão`
+              ? `Mesa ${order.tableNumber || '01'} · Salão (Mesa Aberta)`
               : 'Para Viagem (Balcão)'}
           </span>
         </div>

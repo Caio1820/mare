@@ -34,13 +34,25 @@ export function getClearedBeforeTimestamp(): number {
   }
 }
 
-// Validator to strictly filter out fictitious seeds, ancient history, and completed/cleared orders
+export function isNumberedTableOrder(order: Order): boolean {
+  if (!order || order.orderType !== 'local' || !order.tableNumber) return false;
+  const tbl = order.tableNumber.trim().toLowerCase();
+  return tbl !== '' && tbl !== 'balcão' && tbl !== 'balcao';
+}
+
+// Validator to strictly filter out fictitious seeds, ancient history, and closed/completed orders
 export function isOrderActiveAndFresh(order: Order): boolean {
   if (!order || !order.id) return false;
   if (order.id.includes('seed')) return false;
 
-  // Delivered orders are finished and must never clutter the active kitchen board
-  if (order.status === 'entregue') return false;
+  // Closed table tabs are completely finished
+  if (order.tableClosed) return false;
+
+  // For takeaway or counter orders, once delivered they leave the active store.
+  // For numbered tables (01..11), delivered rounds stay in the open table tab until the table is closed!
+  if (order.status === 'entregue' && !isNumberedTableOrder(order)) {
+    return false;
+  }
 
   const clearedBefore = getClearedBeforeTimestamp();
   if (order.createdAt && order.createdAt <= clearedBefore) {
@@ -120,6 +132,8 @@ function deduplicateAndSortOrders(orderList: Order[]): Order[] {
         map.set(ord.id, {
           ...existing,
           ...ord,
+          tableClosed: !!(existing.tableClosed || ord.tableClosed),
+          roundNumber: ord.roundNumber || existing.roundNumber || 1,
           announcedAt: Math.max(existing.announcedAt || 0, ord.announcedAt || 0) || undefined,
         });
       }
@@ -314,6 +328,21 @@ export async function createOrder(orderPayload: {
   const orderId = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   knownOrderIds.add(orderId);
 
+  const isNumberedTable =
+    orderPayload.orderType === 'local' &&
+    orderPayload.tableNumber &&
+    orderPayload.tableNumber.toLowerCase() !== 'balcão' &&
+    orderPayload.tableNumber.toLowerCase() !== 'balcao';
+
+  const existingTableOrders = isNumberedTable
+    ? current.filter(
+        (o) =>
+          o.orderType === 'local' &&
+          o.tableNumber === orderPayload.tableNumber &&
+          !o.tableClosed
+      )
+    : [];
+
   const localNewOrder: Order = {
     id: orderId,
     orderNumber: `#${numStr}`,
@@ -331,6 +360,8 @@ export async function createOrder(orderPayload: {
     createdAt: Date.now(),
     formattedTime,
     estimatedMinutes: 15,
+    tableClosed: false,
+    roundNumber: isNumberedTable ? existingTableOrders.length + 1 : 1,
   };
 
   // 1. Immediately update local storage and notify local listeners
@@ -392,6 +423,88 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
     });
   } catch {
     // Local update is already active
+  }
+}
+
+export interface OpenTableSummary {
+  tableNumber: string;
+  customerName: string;
+  customerPhone?: string;
+  orders: Order[];
+  totalAmount: number;
+  totalItemsCount: number;
+  openedAt: number;
+  hasPendingKitchenItems: boolean;
+}
+
+export function getOpenTablesMap(orders: Order[]): Record<string, OpenTableSummary> {
+  const map: Record<string, OpenTableSummary> = {};
+
+  // Sort oldest first so round 1 is first
+  const sortedAsc = [...orders].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+  for (const ord of sortedAsc) {
+    if (!isNumberedTableOrder(ord) || ord.tableClosed) continue;
+    const tbl = ord.tableNumber!.trim();
+
+    if (!map[tbl]) {
+      map[tbl] = {
+        tableNumber: tbl,
+        customerName: ord.customerName || `Mesa ${tbl}`,
+        customerPhone: ord.customerPhone,
+        orders: [],
+        totalAmount: 0,
+        totalItemsCount: 0,
+        openedAt: ord.createdAt || Date.now(),
+        hasPendingKitchenItems: false,
+      };
+    }
+
+    // Prefer custom name over default "Mesa XX"
+    if (
+      ord.customerName &&
+      !ord.customerName.toLowerCase().startsWith('mesa ') &&
+      map[tbl].customerName.toLowerCase().startsWith('mesa ')
+    ) {
+      map[tbl].customerName = ord.customerName;
+    }
+
+    if (ord.customerPhone && !map[tbl].customerPhone) {
+      map[tbl].customerPhone = ord.customerPhone;
+    }
+
+    map[tbl].orders.push(ord);
+    map[tbl].totalAmount += ord.total || 0;
+    map[tbl].totalItemsCount += (ord.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0);
+    if (ord.status !== 'entregue') {
+      map[tbl].hasPendingKitchenItems = true;
+    }
+  }
+
+  return map;
+}
+
+// Close and settle all open orders for a table (Fechar Conta / Liberar Mesa)
+export async function closeTableTab(
+  tableNumber: string,
+  paymentMethod: PaymentMethod = 'balcao'
+): Promise<void> {
+  const cleanTable = tableNumber.trim();
+  const current = readFromStorage();
+  const remaining = current.filter(
+    (ord) => !(ord.orderType === 'local' && ord.tableNumber?.trim() === cleanTable)
+  );
+
+  notifyListeners(remaining, false);
+
+  try {
+    await fetchWithTimeout(`/api/tables/${encodeURIComponent(cleanTable)}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentMethod }),
+    });
+  } catch {
+    // Local update already applied
   }
 }
 

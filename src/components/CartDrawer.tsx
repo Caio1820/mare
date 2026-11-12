@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Trash2,
   Plus,
@@ -12,9 +12,9 @@ import {
   User,
   MessageSquare,
   CreditCard,
-  Check,
 } from 'lucide-react';
 import { CartItem, OrderType } from '../types';
+import { OpenTableSummary } from '../utils/kdsStore';
 import { playTouchSound, playSuccessChime } from '../utils/sound';
 
 interface CartDrawerProps {
@@ -29,6 +29,7 @@ interface CartDrawerProps {
   onSelectOrderType: (type: OrderType, table?: string) => void;
   onNavigateToOrderTypeScreen: () => void;
   onConfirmOrderAtCounter: (customerName: string, observations: string) => void;
+  openTablesMap?: Record<string, OpenTableSummary>;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -43,23 +44,43 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onSelectOrderType,
   onNavigateToOrderTypeScreen,
   onConfirmOrderAtCounter,
+  openTablesMap = {},
 }) => {
   const [customerName, setCustomerName] = useState<string>('');
   const [observations, setObservations] = useState<string>('');
   const [isEditingTable, setIsEditingTable] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  const currentType = orderType || 'local';
+  const activeTableSummary =
+    currentType === 'local' && tableNumber !== 'Balcão' ? openTablesMap[tableNumber] : undefined;
+
+  // Automatically pre-fill customer name when selecting an already open table
+  useEffect(() => {
+    if (
+      activeTableSummary &&
+      activeTableSummary.customerName &&
+      !activeTableSummary.customerName.toLowerCase().startsWith('mesa ')
+    ) {
+      setCustomerName((prev) => (prev.trim() === '' ? activeTableSummary.customerName : prev));
+    }
+  }, [activeTableSummary, tableNumber]);
+
   if (!isOpen) return null;
 
-  const currentType = orderType || 'local';
   const tables = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'];
 
   const handleFinalize = () => {
     if (items.length === 0 || isSubmitting) return;
 
     setIsSubmitting(true);
-    // If name is blank, gracefully default so the order is NEVER locked!
-    const fallbackName = currentType === 'local' ? `Mesa ${tableNumber || '01'}` : 'Cliente Balcão';
+    const fallbackName =
+      activeTableSummary?.customerName ||
+      (currentType === 'local'
+        ? tableNumber === 'Balcão'
+          ? 'Cliente Balcão'
+          : `Mesa ${tableNumber || '01'}`
+        : 'Cliente Balcão');
     const finalName = customerName.trim() || fallbackName;
 
     playSuccessChime();
@@ -196,13 +217,51 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
         {/* Scrollable Center: Customer Identification & Items */}
         <div className="flex-1 overflow-y-auto custom-kiosk-scroll p-3.5 sm:p-5 space-y-3">
+          {/* Open Table Banner */}
+          {currentType === 'local' && tableNumber !== 'Balcão' && (
+            <div
+              className={`p-3 rounded-2xl border text-xs ${
+                activeTableSummary
+                  ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-200'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+              }`}
+            >
+              {activeTableSummary ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between font-bold text-emerald-300">
+                    <span>🟢 MESA {tableNumber} ABERTA ({activeTableSummary.customerName})</span>
+                    <span className="font-mono">
+                      {activeTableSummary.orders.length + 1}º Pedido da Mesa
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-300">
+                    Já consumido na mesa:{' '}
+                    <strong className="font-mono text-white">
+                      R$ {activeTableSummary.totalAmount.toFixed(2).replace('.', ',')}
+                    </strong>{' '}
+                    · Novo total acumulado:{' '}
+                    <strong className="font-mono text-amber-400">
+                      R$ {(activeTableSummary.totalAmount + cartTotal).toFixed(2).replace('.', ',')}
+                    </strong>
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <span>
+                    🍽️ <strong>Mesa {tableNumber} ficará Aberta:</strong> você poderá pedir mais bebidas ou porções durante o consumo!
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Customer Identification - Always Visible on Top of Items */}
           <div className="bg-zinc-950/90 border border-zinc-800 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-sm">
             <div>
               <label className="flex items-center justify-between text-[11px] sm:text-xs font-bold uppercase tracking-wider text-zinc-300 mb-1">
                 <span className="flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Seu Nome para a Senha:</span>
+                  <span>Seu Nome para a Mesa / Senha:</span>
                 </span>
                 <span className="text-[10px] text-zinc-500">(Opcional)</span>
               </label>
@@ -210,7 +269,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Ex: Carlos (ou deixe em branco)"
+                placeholder={
+                  activeTableSummary
+                    ? activeTableSummary.customerName
+                    : 'Ex: Carlos (ou deixe em branco)'
+                }
                 className="w-full bg-zinc-900 border border-zinc-750 focus:border-amber-400 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none transition-colors"
               />
             </div>
@@ -413,13 +476,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               Continuar Pedindo
             </button>
 
-            {/* CONFIRMAR NO BALCAO BUTTON - ALWAYS WORKS AND NEVER BLOCKS */}
+            {/* CONFIRMAR NO BALCAO / ADICIONAR A MESA BUTTON */}
             <button
               disabled={items.length === 0 || isSubmitting}
               onClick={handleFinalize}
               className="py-3 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 text-zinc-950 font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center justify-center gap-1.5 min-h-[46px] cursor-pointer"
             >
-              <span>Confirmar no Balcão</span>
+              <span>
+                {activeTableSummary
+                  ? `Adicionar à Mesa ${tableNumber}`
+                  : currentType === 'local' && tableNumber !== 'Balcão'
+                  ? `Abrir Mesa ${tableNumber} & Pedir`
+                  : 'Confirmar no Balcão'}
+              </span>
               <ArrowRight className="w-4 h-4 stroke-[3]" />
             </button>
           </div>

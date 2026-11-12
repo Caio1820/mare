@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, Sparkles } from 'lucide-react';
+import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, UtensilsCrossed } from 'lucide-react';
 import { OrderType, AppScreen } from '../types';
 import { playTouchSound } from '../utils/sound';
 
@@ -12,7 +12,8 @@ interface HeaderProps {
   onNavigateScreen: (screen: AppScreen) => void;
   cartCount: number;
   onChangeOrderType?: () => void;
-  onOpenStaffGuide?: () => void;
+  onOpenTablesModal?: () => void;
+  openTablesCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,18 +24,19 @@ export const Header: React.FC<HeaderProps> = ({
   activeScreen,
   onNavigateScreen,
   onChangeOrderType,
-  onOpenStaffGuide,
+  onOpenTablesModal,
+  openTablesCount = 0,
 }) => {
   return (
-    <header className="relative z-30 w-full bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 px-2.5 sm:px-6 md:px-8 py-2 sm:py-3.5 flex items-center justify-between gap-1.5 sm:gap-4 overflow-x-hidden">
-      {/* Zone 1: Single text element wordmark */}
+    <header className="relative z-30 w-full bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 px-3 sm:px-6 md:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
+      {/* Zone 1: Brand Wordmark + Logo */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <button
           onClick={() => {
             playTouchSound(500);
             onNavigateScreen('autoatendimento');
           }}
-          className="flex items-center gap-1.5 sm:gap-2.5 text-left focus:outline-none group"
+          className="flex items-center gap-1.5 sm:gap-2.5 text-left focus:outline-none group cursor-pointer"
         >
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-zinc-950 border border-amber-500/50 p-0.5 flex items-center justify-center shadow-lg shadow-amber-500/15 overflow-hidden shrink-0 group-hover:border-amber-400 group-hover:scale-105 transition-all">
             <img
@@ -48,19 +50,20 @@ export const Header: React.FC<HeaderProps> = ({
             />
           </div>
           <div className="leading-tight">
-            <span className="font-display text-lg sm:text-xl tracking-wider uppercase font-bold text-zinc-100 group-hover:text-amber-400 transition-colors flex items-center gap-1">
+            <span className="font-display text-base sm:text-xl tracking-wider uppercase font-bold text-zinc-100 group-hover:text-amber-400 transition-colors flex items-center gap-1 whitespace-nowrap">
               Maré
               <span className="text-amber-500 text-[10px] font-mono font-bold">2026</span>
             </span>
-            <span className="text-zinc-500 text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest hidden xs:block">
+            <span className="text-zinc-500 text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest hidden xs:block whitespace-nowrap">
               Uma Onda de Sabores
             </span>
           </div>
         </button>
       </div>
 
-      {/* Zone 2: Navigation between screens (optimized for mobile touch) */}
-      <div className="flex items-center gap-0.5 sm:gap-1 bg-zinc-900/90 border border-zinc-800 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl shrink-0">
+      {/* Zone 2: Navigation between screens (Spacious, clean, single continuous pill bar) */}
+      <div className="flex items-center gap-1 sm:gap-1.5 bg-zinc-900/90 border border-zinc-800 p-1 rounded-xl sm:rounded-2xl overflow-x-auto no-scrollbar shrink">
+        {/* Cardápio / Totem */}
         <a
           href="#/"
           onClick={(e) => {
@@ -68,19 +71,40 @@ export const Header: React.FC<HeaderProps> = ({
             playTouchSound(550);
             onNavigateScreen('autoatendimento');
           }}
-          className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[40px] ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap shrink-0 ${
             activeScreen === 'autoatendimento'
               ? 'bg-amber-500 text-zinc-950 shadow-md'
               : 'text-zinc-400 hover:text-zinc-200'
           }`}
-          title="Totem do Cliente (#/)"
+          title="Totem de Autoatendimento (#/)"
         >
-          <Touchpad className="w-3.5 h-3.5" />
+          <Touchpad className="w-3.5 h-3.5 shrink-0" />
           <span className="hidden sm:inline">Autoatendimento</span>
-          <span className="sm:hidden">Totem</span>
+          <span className="sm:hidden">Cardápio</span>
         </a>
 
-        <div className="flex items-center">
+        {/* Botão Mesas Abertas */}
+        {onOpenTablesModal && (
+          <button
+            onClick={() => {
+              playTouchSound(560);
+              onOpenTablesModal();
+            }}
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold text-emerald-300 hover:text-emerald-200 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap shrink-0 cursor-pointer"
+            title="Ver Mesas Abertas e Fechar Conta na Mesa"
+          >
+            <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Mesas</span>
+            {openTablesCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-zinc-950 text-[10px] font-black">
+                {openTablesCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Cozinha KDS */}
+        <div className="flex items-center shrink-0">
           <a
             href="#/cozinha"
             onClick={(e) => {
@@ -88,28 +112,29 @@ export const Header: React.FC<HeaderProps> = ({
               playTouchSound(550);
               onNavigateScreen('cozinha');
             }}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-l-lg sm:rounded-l-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[40px] ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-l-lg sm:rounded-l-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap ${
               activeScreen === 'cozinha'
                 ? 'bg-amber-500 text-zinc-950 shadow-md'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
             title="Cozinha KDS - Senha: MARE123"
           >
-            <ChefHat className="w-3.5 h-3.5" />
+            <ChefHat className="w-3.5 h-3.5 shrink-0" />
             <span>Cozinha</span>
           </a>
           <a
             href="#/cozinha"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-1 sm:px-1.5 py-1.5 text-zinc-500 hover:text-amber-400 text-[10px] rounded-r-lg sm:rounded-r-xl hover:bg-zinc-800 transition-colors hidden xs:inline-block"
+            className="px-1.5 py-1.5 text-zinc-500 hover:text-amber-400 text-[10px] rounded-r-lg sm:rounded-r-xl hover:bg-zinc-800 transition-colors hidden sm:inline-block"
             title="Abrir Cozinha em Nova Aba"
           >
             ↗
           </a>
         </div>
 
-        <div className="flex items-center">
+        {/* Painel TV (Destaque e totalmente visível, sem nada tampando) */}
+        <div className="flex items-center shrink-0">
           <a
             href="#/painel"
             onClick={(e) => {
@@ -117,42 +142,26 @@ export const Header: React.FC<HeaderProps> = ({
               playTouchSound(550);
               onNavigateScreen('painel');
             }}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-l-lg sm:rounded-l-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[40px] ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-l-lg sm:rounded-l-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap ${
               activeScreen === 'painel'
                 ? 'bg-amber-500 text-zinc-950 shadow-md'
-                : 'text-zinc-400 hover:text-zinc-200'
+                : 'text-zinc-300 hover:text-amber-400 hover:bg-zinc-800/80'
             }`}
             title="Painel de Chamadas TV"
           >
-            <Tv className="w-3.5 h-3.5" />
-            <span>Painel</span>
+            <Tv className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="font-extrabold uppercase tracking-wide">Painel TV</span>
           </a>
           <a
             href="#/painel"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-1 sm:px-1.5 py-1.5 text-zinc-500 hover:text-amber-400 text-[10px] rounded-r-lg sm:rounded-r-xl hover:bg-zinc-800 transition-colors hidden xs:inline-block"
-            title="Abrir Painel TV em Nova Aba"
+            className="px-2 py-1.5 text-zinc-400 hover:text-amber-400 text-xs rounded-r-lg sm:rounded-r-xl hover:bg-zinc-800 transition-colors hidden sm:inline-block font-mono"
+            title="Abrir Painel TV em Nova Aba (Modo TV de Chamadas)"
           >
             ↗
           </a>
         </div>
-
-        {/* Guia da Equipe / Manual */}
-        {onOpenStaffGuide && (
-          <button
-            onClick={() => {
-              playTouchSound(550);
-              onOpenStaffGuide();
-            }}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/30 transition-all min-h-[36px] sm:min-h-[40px]"
-            title="Guia de Treinamento da Equipe"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Guia Equipe</span>
-            <span className="sm:hidden">Guia</span>
-          </button>
-        )}
       </div>
 
       {/* Zone 3: Session Context & Reset */}
@@ -163,15 +172,15 @@ export const Header: React.FC<HeaderProps> = ({
               playTouchSound(520);
               if (onChangeOrderType) onChangeOrderType();
             }}
-            className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/60 px-2 sm:px-3 py-1.5 rounded-full text-zinc-200 text-[11px] sm:text-xs font-semibold transition-all active:scale-95 group shadow-sm min-h-[36px]"
+            className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/60 px-2.5 sm:px-3 py-1.5 rounded-full text-zinc-200 text-[11px] sm:text-xs font-semibold transition-all active:scale-95 group shadow-sm min-h-[34px] sm:min-h-[38px] whitespace-nowrap cursor-pointer"
             title="Toque para alterar entre Comer no Local ou Para Viagem"
           >
             <MapPin className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-            <span className="truncate max-w-[100px] xs:max-w-none">
+            <span className="truncate max-w-[90px] xs:max-w-none">
               {orderType === 'local'
-                ? tableNumber
-                  ? `Mesa ${tableNumber} · Salão`
-                  : 'No Local'
+                ? tableNumber === 'Balcão'
+                  ? 'Balcão · Salão'
+                  : `Mesa ${tableNumber || '01'} · Salão`
                 : 'Para Viagem'}
             </span>
             <span className="text-[10px] text-amber-400 underline font-normal hidden sm:inline ml-0.5">
@@ -189,10 +198,10 @@ export const Header: React.FC<HeaderProps> = ({
                 onReset();
               }
             }}
-            className="px-3 py-2 text-xs font-semibold bg-zinc-900 hover:bg-red-950/40 text-zinc-400 hover:text-red-400 border border-zinc-800 hover:border-red-800/50 rounded-lg flex items-center gap-1.5 transition-colors active:scale-95"
+            className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold bg-zinc-900 hover:bg-red-950/40 text-zinc-400 hover:text-red-400 border border-zinc-800 hover:border-red-800/50 rounded-xl flex items-center gap-1.5 transition-colors active:scale-95 whitespace-nowrap min-h-[34px] sm:min-h-[38px] cursor-pointer"
             title="Reiniciar Pedido"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden md:inline">Reiniciar</span>
           </button>
         )}

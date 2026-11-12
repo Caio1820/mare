@@ -35,7 +35,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       onClick={handleCardClick}
       className="group relative bg-zinc-900/90 border border-zinc-800 hover:border-amber-500/50 rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col justify-between transition-all duration-200 active:scale-[0.99] cursor-pointer shadow-lg hover:shadow-amber-500/5"
     >
-      {/* Media Image Container (aspect-[16/10] on mobile for compact scanning, 4/3 on tablet/desktop) */}
+      {/* Media Image Container */}
       <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full bg-zinc-950 overflow-hidden shrink-0">
         {!imageError ? (
           <img
@@ -85,14 +85,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <span className="text-[10px] sm:text-[11px] uppercase font-bold text-zinc-500 tracking-wider block mb-0.5 sm:mb-1">
             {product.categoryLabel}
           </span>
-          <h3 className="font-display text-lg sm:text-2xl font-bold text-zinc-100 uppercase tracking-wide group-hover:text-amber-400 transition-colors line-clamp-1">
+          <h3 className="font-display text-base sm:text-2xl font-bold text-zinc-100 uppercase tracking-wide group-hover:text-amber-400 transition-colors line-clamp-1">
             {product.name}
           </h3>
           <p className="mt-1 text-xs sm:text-sm text-zinc-400 line-clamp-2 leading-relaxed">
             {product.description}
           </p>
 
-          {/* Show flavor / option pills when available (e.g. Soda Cans, Juices, Sauces, Combos) */}
+          {/* Show flavor / option pills when available */}
           {product.optionChoices && product.optionChoices.length > 0 && (
             <div className="mt-2.5 flex flex-wrap gap-1">
               {product.optionChoices.map((choice) => (
@@ -107,15 +107,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
-        {/* Touch Button Controls (min touch height >= 44px) */}
+        {/* Touch Button Controls */}
         <div className="pt-1.5 sm:pt-2 flex items-center gap-2">
           {product.isBurger || (product.optionChoices && product.optionChoices.length > 0) ? (
             <button
               type="button"
               onClick={handleCardClick}
-              className="w-full py-2.5 sm:py-3.5 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-zinc-800/90 hover:bg-amber-500 text-zinc-200 hover:text-zinc-950 font-display font-bold text-xs sm:text-sm uppercase tracking-wider border border-zinc-700 hover:border-amber-400 transition-all active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] sm:min-h-[48px] shadow-sm"
+              className="w-full py-2.5 sm:py-3.5 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-zinc-800/90 hover:bg-amber-500 text-zinc-200 hover:text-zinc-950 font-display font-bold text-xs sm:text-sm uppercase tracking-wider border border-zinc-700 hover:border-amber-400 transition-all active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[42px] sm:min-h-[48px] shadow-sm cursor-pointer"
             >
-              <SlidersHorizontal className="w-4 h-4 text-amber-400 group-hover:text-zinc-950 transition-colors" />
+              <SlidersHorizontal className="w-4 h-4 text-amber-400 group-hover:text-zinc-950 transition-colors shrink-0" />
               <span>
                 {product.isBurger
                   ? 'Personalizar & Adicionar'
@@ -127,16 +127,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <button
                 type="button"
                 onClick={handleCardClick}
-                className="flex-1 py-2.5 sm:py-3 px-2 sm:px-3 rounded-xl sm:rounded-2xl bg-zinc-800/80 hover:bg-zinc-750 text-zinc-300 font-semibold text-xs border border-zinc-700/80 transition-all min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 sm:py-3 px-2 sm:px-3 rounded-xl sm:rounded-2xl bg-zinc-800/80 hover:bg-zinc-750 text-zinc-300 font-semibold text-xs border border-zinc-700/80 transition-all min-h-[42px] sm:min-h-[48px] flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
+                <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                 <span>Adicionais</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleQuickAdd}
-                className={`flex-1 py-2.5 sm:py-3 px-2 sm:px-3 rounded-xl sm:rounded-2xl font-display font-bold text-xs sm:text-sm uppercase tracking-wide transition-all active:scale-95 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1 sm:gap-1.5 shadow ${
+                className={`flex-1 py-2.5 sm:py-3 px-2 sm:px-3 rounded-xl sm:rounded-2xl font-display font-bold text-xs sm:text-sm uppercase tracking-wide transition-all active:scale-95 min-h-[42px] sm:min-h-[48px] flex items-center justify-center gap-1 sm:gap-1.5 shadow cursor-pointer ${
                   isAddedFeedback
                     ? 'bg-emerald-500 text-white'
                     : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950'
@@ -144,12 +144,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               >
                 {isAddedFeedback ? (
                   <>
-                    <Check className="w-4 h-4 stroke-[3]" />
+                    <Check className="w-4 h-4 stroke-[3] shrink-0" />
                     <span>Adicionado!</span>
                   </>
                 ) : (
                   <>
-                    <Plus className="w-4 h-4 stroke-[3]" />
+                    <Plus className="w-4 h-4 stroke-[3] shrink-0" />
                     <span>Adicionar</span>
                   </>
                 )}
