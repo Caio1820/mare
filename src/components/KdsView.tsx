@@ -21,19 +21,28 @@ import {
   Layers,
   Receipt,
   UtensilsCrossed,
+  ShoppingBag,
+  BarChart3,
+  QrCode,
+  Ban,
+  X,
 } from 'lucide-react';
-import { Order, OrderStatus } from '../types';
+import { CartItem, Order, OrderStatus } from '../types';
 import {
   subscribeToOrders,
   updateOrderStatus,
+  cancelOrder,
   verifyAdminPassword,
   announceOrder,
   clearAllOrders,
   getOpenTablesMap,
+  partitionOrderItems,
 } from '../utils/kdsStore';
 import { playTouchSound, playKitchenBell, speakOrderReady, unlockAudioContext } from '../utils/sound';
 import { ThermalReceipt, printThermalOrder } from './ThermalReceipt';
 import { OpenTablesModal } from './OpenTablesModal';
+import { KitchenReportView } from './KitchenReportView';
+import { TableQrCodesModal } from './TableQrCodesModal';
 
 interface KdsViewProps {
   onBackToKiosk: () => void;
@@ -55,10 +64,16 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [now, setNow] = useState<number>(Date.now());
+  const [activeSection, setActiveSection] = useState<'kds' | 'report'>('kds');
   const [mobileTab, setMobileTab] = useState<'recebido' | 'preparo' | 'pronto'>('recebido');
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
   const [lastAnnouncedId, setLastAnnouncedId] = useState<string | null>(null);
   const [isTablesModalOpen, setIsTablesModalOpen] = useState<boolean>(false);
+  const [isQrCodesModalOpen, setIsQrCodesModalOpen] = useState<boolean>(false);
+  const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState<string>('');
+  const [isCancellingOrder, setIsCancellingOrder] = useState<boolean>(false);
+  const [cancelFeedback, setCancelFeedback] = useState<string | null>(null);
 
   // Real-time time updater for elapsed minute calculation
   useEffect(() => {
@@ -135,6 +150,26 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
     speakOrderReady(order.orderNumber, order.customerName).catch(() => {});
     setLastAnnouncedId(order.id);
     setTimeout(() => setLastAnnouncedId(null), 4000);
+  };
+
+  // Confirm Order Cancellation (removes from KDS, TV, Open Tables and revenue)
+  const handleConfirmCancelOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancellingOrder || isCancellingOrder) return;
+    setIsCancellingOrder(true);
+    try {
+      const target = cancellingOrder;
+      await cancelOrder(target.id, cancelReasonInput.trim() || 'Cancelado pela cozinha');
+      playTouchSound(420);
+      setCancellingOrder(null);
+      setCancelReasonInput('');
+      setCancelFeedback(
+        `Pedido ${target.orderNumber} (${target.customerName}) cancelado e excluído do faturamento.`
+      );
+      setTimeout(() => setCancelFeedback(null), 6000);
+    } finally {
+      setIsCancellingOrder(false);
+    }
   };
 
   // 1. LOGIN SCREEN (Unauthenticated)
@@ -304,6 +339,23 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
 
           {/* Action Controls (Scrollable single row on mobile) */}
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0">
+            {/* FILA KDS / RELATÓRIO SWITCHER */}
+            <button
+              onClick={() => {
+                playTouchSound(580);
+                setActiveSection((prev) => (prev === 'kds' ? 'report' : 'kds'));
+              }}
+              className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border flex items-center gap-1.5 text-[11px] sm:text-xs font-bold transition-all active:scale-95 whitespace-nowrap shrink-0 min-h-[36px] ${
+                activeSection === 'report'
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-md shadow-amber-500/20'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/40'
+              }`}
+              title={activeSection === 'report' ? 'Voltar para Fila da Cozinha' : 'Abrir Relatório de Pedidos do Dia e Mês'}
+            >
+              <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>{activeSection === 'report' ? 'Fila Cozinha' : 'Relatório'}</span>
+            </button>
+
             {/* MESAS ABERTAS (CONTROLE DE CONTAS DE MESA) */}
             <button
               onClick={() => {
@@ -317,20 +369,35 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
               <span>Mesas ({openTablesCount}/11)</span>
             </button>
 
-            {/* LIMPAR FILA */}
+            {/* QR CODES DAS MESAS (01 A 11) */}
             <button
               onClick={() => {
-                playTouchSound(450);
-                if (window.confirm('Deseja limpar todos os pedidos finalizados/entregues da fila da cozinha?')) {
-                  clearAllOrders(false);
-                }
+                playTouchSound(580);
+                setIsQrCodesModalOpen(true);
               }}
-              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 border border-zinc-700 flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold whitespace-nowrap shrink-0 min-h-[36px]"
-              title="Limpar pedidos antigos"
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-300 border border-zinc-700 hover:border-amber-500/50 flex items-center gap-1.5 text-[11px] sm:text-xs font-bold transition-all active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
+              title="Gerar e imprimir QR Codes numerados das Mesas 01 a 11"
             >
-              <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400 shrink-0" />
-              <span>Limpar</span>
+              <QrCode className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
+              <span>QR Codes</span>
             </button>
+
+            {/* LIMPAR FILA */}
+            {activeSection === 'kds' && (
+              <button
+                onClick={() => {
+                  playTouchSound(450);
+                  if (window.confirm('Deseja limpar todos os pedidos finalizados/entregues da fila da cozinha? O histórico continuará salvo no Relatório.')) {
+                    clearAllOrders(false);
+                  }
+                }}
+                className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-300 border border-zinc-700 flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold whitespace-nowrap shrink-0 min-h-[36px]"
+                title="Limpar pedidos antigos da fila (mantém no relatório)"
+              >
+                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400 shrink-0" />
+                <span>Limpar</span>
+              </button>
+            )}
 
             <button
               onClick={() => {
@@ -366,8 +433,9 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
           </div>
         </header>
 
-        {/* Mobile Column Tab Switcher */}
-        <div className="md:hidden bg-zinc-950/90 border-t border-zinc-800/80 px-2.5 py-1.5 flex items-center gap-1.5">
+        {/* Mobile Column Tab Switcher (only shown in KDS board mode) */}
+        {activeSection === 'kds' && (
+          <div className="md:hidden bg-zinc-950/90 border-t border-zinc-800/80 px-2.5 py-1.5 flex items-center gap-1.5">
           <button
             onClick={() => {
               playTouchSound(520);
@@ -419,9 +487,30 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
             </span>
           </button>
         </div>
+        )}
       </div>
 
-      {/* Main Production Columns */}
+      {cancelFeedback && (
+        <div className="mx-3 sm:mx-6 mt-3 px-4 py-2.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-200 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Ban className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{cancelFeedback}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCancelFeedback(null)}
+            className="text-red-300 hover:text-white p-1"
+            aria-label="Fechar aviso"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Main Content Area: Kitchen Production Board OR Daily/Monthly Report */}
+      {activeSection === 'report' ? (
+        <KitchenReportView onPrintOrder={(order) => setPrintingOrder(order)} />
+      ) : (
       <div className="flex-1 p-3 sm:p-6 pb-safe">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-start">
           {/* COLUMN 1: RECEBIDO */}
@@ -456,6 +545,11 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
                     now={now}
                     onPrint={() => setPrintingOrder(order)}
                     onCallCustomer={() => handleCallCustomer(order)}
+                    onCancel={() => {
+                      playTouchSound(460);
+                      setCancellingOrder(order);
+                      setCancelReasonInput('');
+                    }}
                     isAnnouncedRecently={lastAnnouncedId === order.id}
                     actionButton={
                       <button
@@ -505,6 +599,11 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
                     isHighlighted
                     onPrint={() => setPrintingOrder(order)}
                     onCallCustomer={() => handleCallCustomer(order)}
+                    onCancel={() => {
+                      playTouchSound(460);
+                      setCancellingOrder(order);
+                      setCancelReasonInput('');
+                    }}
                     isAnnouncedRecently={lastAnnouncedId === order.id}
                     actionButton={
                       <button
@@ -554,6 +653,11 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
                     isReady
                     onPrint={() => setPrintingOrder(order)}
                     onCallCustomer={() => handleCallCustomer(order)}
+                    onCancel={() => {
+                      playTouchSound(460);
+                      setCancellingOrder(order);
+                      setCancelReasonInput('');
+                    }}
                     isAnnouncedRecently={lastAnnouncedId === order.id}
                     actionButton={
                       <div className="space-y-2 w-full">
@@ -582,6 +686,7 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
           </div>
         </div>
       </div>
+      )}
 
       {/* Thermal Receipt Print Modal */}
       {printingOrder && (
@@ -605,6 +710,103 @@ export const KdsView: React.FC<KdsViewProps> = ({ onBackToKiosk, onOrderForTable
           }
         }}
       />
+
+      {/* Table QR Codes Modal (01 to 11) */}
+      <TableQrCodesModal
+        isOpen={isQrCodesModalOpen}
+        onClose={() => setIsQrCodesModalOpen(false)}
+      />
+
+      {/* Order Cancellation Confirmation Modal */}
+      {cancellingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/35 text-red-400 flex items-center justify-center shrink-0">
+                  <Ban className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base sm:text-lg font-bold uppercase text-zinc-100">
+                    Cancelar Pedido {cancellingOrder.orderNumber}
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    {cancellingOrder.customerName} ·{' '}
+                    {cancellingOrder.orderType === 'local'
+                      ? `Mesa ${cancellingOrder.tableNumber || '01'}`
+                      : 'Para Viagem'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCancellingOrder(null)}
+                className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-red-950/35 border border-red-800/50 text-xs text-red-200 leading-relaxed">
+              Este pedido será removido da fila da cozinha, do Painel TV, da conta da mesa e será{' '}
+              <strong>excluído do faturamento e do fechamento de caixa</strong>.
+            </div>
+
+            <form onSubmit={handleConfirmCancelOrder} className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Motivo do cancelamento (opcional):
+                </label>
+                <div className="flex flex-wrap gap-1.5 pb-1">
+                  {['Pedido por engano', 'Correção de itens', 'Cliente desistiu'].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => {
+                        playTouchSound(500);
+                        setCancelReasonInput(chip);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                        cancelReasonInput === chip
+                          ? 'bg-red-500/25 border-red-500/60 text-red-200'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={cancelReasonInput}
+                  onChange={(e) => setCancelReasonInput(e.target.value)}
+                  maxLength={140}
+                  placeholder="Ex: Cliente finalizou sem querer / pediu para refazer..."
+                  className="w-full bg-zinc-950 border border-zinc-700 focus:border-red-500 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none min-h-[44px]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setCancellingOrder(null)}
+                  disabled={isCancellingOrder}
+                  className="flex-1 py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs uppercase tracking-wider min-h-[44px]"
+                >
+                  Manter Pedido
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCancellingOrder}
+                  className="flex-1 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-display font-bold text-xs uppercase tracking-wider min-h-[44px]"
+                >
+                  {isCancellingOrder ? 'Cancelando...' : 'Confirmar Cancelamento'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -616,6 +818,7 @@ interface OrderKitchenCardProps {
   actionButton: React.ReactNode;
   onPrint: () => void;
   onCallCustomer: () => void;
+  onCancel: () => void;
   isHighlighted?: boolean;
   isReady?: boolean;
   isAnnouncedRecently?: boolean;
@@ -627,6 +830,7 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
   actionButton,
   onPrint,
   onCallCustomer,
+  onCancel,
   isHighlighted,
   isReady,
   isAnnouncedRecently,
@@ -638,6 +842,99 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
   const whatsappUrl = `https://wa.me/55${cleanPhone || '96999999999'}?text=${encodeURIComponent(
     `Olá ${order.customerName}! Seu pedido ${order.orderNumber} está pronto e te esperando na recepção da Maré Hambúrgueria! 🍔 Venha retirar no balcão.`
   )}`;
+
+  const { localItems, takeawayItems } = partitionOrderItems(order);
+  const showGroupedBlocks = order.orderType === 'local' && takeawayItems.length > 0;
+
+  const renderKitchenItem = (item: CartItem, idx: number, isTakeawayBlock: boolean) => (
+    <div
+      key={item.cartItemId || idx}
+      className={`p-2.5 rounded-xl border ${
+        isTakeawayBlock
+          ? 'bg-sky-950/25 border-sky-500/40'
+          : 'bg-zinc-900/90 border-zinc-800'
+      }`}
+    >
+      <div className="flex items-start justify-between font-bold text-sm text-zinc-100">
+        <span className="flex items-center gap-2">
+          <span
+            className={`w-5 h-5 rounded-md flex items-center justify-center font-black text-xs shrink-0 ${
+              isTakeawayBlock ? 'bg-sky-500 text-zinc-950' : 'bg-amber-500 text-zinc-950'
+            }`}
+          >
+            {item.quantity}
+          </span>
+          <span>{item.product.name}</span>
+        </span>
+      </div>
+
+      {/* 3D Custom Burger Layers Breakdown */}
+      {item.burger3DConfig && (
+        <div className="pl-7 mt-1.5 p-2 rounded-lg bg-amber-950/20 border border-amber-500/30 text-[11px] space-y-1">
+          <div className="flex items-center gap-1 font-bold text-amber-400">
+            <Layers className="w-3 h-3" />
+            <span>Montado no 3D:</span>
+          </div>
+          <div className="text-zinc-300">• Pão: {item.burger3DConfig.bunLabel}</div>
+          <div className="text-amber-300 font-semibold">
+            • {item.burger3DConfig.pattiesCount}x Carne ({item.burger3DConfig.meatDoneness})
+          </div>
+          <div className="text-zinc-300">• Queijo: {item.burger3DConfig.cheeseLabel}</div>
+          {item.burger3DConfig.selectedAddons.bacon && (
+            <div className="text-emerald-400 font-semibold">• + Bacon Crocante</div>
+          )}
+          {item.burger3DConfig.selectedAddons.cebola_caram && (
+            <div className="text-amber-400">• + Cebola Caramelizada</div>
+          )}
+          {item.burger3DConfig.selectedAddons.picles && (
+            <div className="text-emerald-400">• + Picles Artesanal</div>
+          )}
+          {item.burger3DConfig.selectedAddons.salada_mare && (
+            <div className="text-emerald-400">• + Salada Maré</div>
+          )}
+          <div className="text-zinc-300">• Molho: {item.burger3DConfig.sauceLabel}</div>
+        </div>
+      )}
+
+      {/* Standard Customization Details */}
+      {!item.burger3DConfig && item.customization && (
+        <div className="pl-7 mt-1 space-y-0.5 text-[11px]">
+          {item.customization.selectedOption && (
+            <div className="text-amber-300 font-bold bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded inline-block mr-1">
+              Opção / Sabor: {item.customization.selectedOption}
+            </div>
+          )}
+
+          {item.product.isBurger && (
+            <div className="text-amber-400 font-bold">
+              Ponto: {item.customization.meatDoneness}
+            </div>
+          )}
+
+          {item.customization.removedIngredients.length > 0 && (
+            <div className="text-red-400 font-bold bg-red-950/40 px-1.5 py-0.5 rounded inline-block">
+              SEM: {item.customization.removedIngredients.join(', ')}
+            </div>
+          )}
+
+          {Object.keys(item.customization.selectedAddons).length > 0 && (
+            <div className="text-emerald-400 font-semibold">
+              + Extras:{' '}
+              {Object.entries(item.customization.selectedAddons)
+                .map(([k, v]) => `${v}x ${k.replace('_', ' ')}`)
+                .join(', ')}
+            </div>
+          )}
+
+          {item.customization.specialNotes && (
+            <div className="text-zinc-300 italic">
+              Obs: "{item.customization.specialNotes}"
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -656,13 +953,13 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
       {/* Top Card Header: Order Number, Customer Name & Time */}
       <div className="flex items-start justify-between gap-2 border-b border-zinc-850 pb-2.5">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-display text-3xl font-black text-amber-400 tracking-wider block">
               {order.orderNumber}
             </span>
             {order.roundNumber && order.roundNumber > 1 && (
               <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold uppercase">
-                ★ {order.roundNumber}º Pedido da Mesa
+                {order.roundNumber}º Envio da Mesa
               </span>
             )}
           </div>
@@ -672,7 +969,9 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
           </div>
           <span className="text-[11px] text-zinc-400 block font-medium">
             {order.orderType === 'local'
-              ? `Mesa ${order.tableNumber || '01'} · Salão (Mesa Aberta)`
+              ? `Mesa ${order.tableNumber || '01'} · Salão${
+                  takeawayItems.length > 0 ? ' + Para Viagem' : ''
+                }`
               : 'Para Viagem (Balcão)'}
           </span>
         </div>
@@ -702,87 +1001,50 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
         </div>
       </div>
 
-      {/* Items List */}
-      <div className="space-y-2 text-xs">
-        {order.items.map((item, idx) => (
-          <div key={idx} className="bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800">
-            <div className="flex items-start justify-between font-bold text-sm text-zinc-100">
-              <span className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-md bg-amber-500 text-zinc-950 flex items-center justify-center font-black text-xs shrink-0">
-                  {item.quantity}
+      {/* Items List (Grouped into Consumo na Mesa and Para Viagem when applicable) */}
+      {showGroupedBlocks ? (
+        <div className="space-y-3 text-xs">
+          {localItems.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-amber-400 px-1">
+                <span className="flex items-center gap-1.5">
+                  <UtensilsCrossed className="w-3.5 h-3.5 shrink-0" />
+                  <span>Consumo na Mesa</span>
                 </span>
-                <span>{item.product.name}</span>
-              </span>
+                <span className="font-mono tabular-nums">
+                  {localItems.reduce((a, b) => a + b.quantity, 0)} un
+                </span>
+              </div>
+              <div className="space-y-2">
+                {localItems.map((item, idx) => renderKitchenItem(item, idx, false))}
+              </div>
             </div>
+          )}
 
-            {/* 3D Custom Burger Layers Breakdown */}
-            {item.burger3DConfig && (
-              <div className="pl-7 mt-1.5 p-2 rounded-lg bg-amber-950/20 border border-amber-500/30 text-[11px] space-y-1">
-                <div className="flex items-center gap-1 font-bold text-amber-400">
-                  <Layers className="w-3 h-3" />
-                  <span>Montado no 3D:</span>
-                </div>
-                <div className="text-zinc-300">• Pão: {item.burger3DConfig.bunLabel}</div>
-                <div className="text-amber-300 font-semibold">
-                  • {item.burger3DConfig.pattiesCount}x Carne ({item.burger3DConfig.meatDoneness})
-                </div>
-                <div className="text-zinc-300">• Queijo: {item.burger3DConfig.cheeseLabel}</div>
-                {item.burger3DConfig.selectedAddons.bacon && (
-                  <div className="text-emerald-400 font-semibold">• + Bacon Crocante</div>
-                )}
-                {item.burger3DConfig.selectedAddons.cebola_caram && (
-                  <div className="text-amber-400">• + Cebola Caramelizada</div>
-                )}
-                {item.burger3DConfig.selectedAddons.picles && (
-                  <div className="text-emerald-400">• + Picles Artesanal</div>
-                )}
-                {item.burger3DConfig.selectedAddons.salada_mare && (
-                  <div className="text-emerald-400">• + Salada Maré</div>
-                )}
-                <div className="text-zinc-300">• Molho: {item.burger3DConfig.sauceLabel}</div>
+          {takeawayItems.length > 0 && (
+            <div className="space-y-1.5 pt-1 border-t border-zinc-800">
+              <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-sky-400 px-1 pt-1">
+                <span className="flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                  <span>Para Viagem (Embalar)</span>
+                </span>
+                <span className="font-mono tabular-nums">
+                  {takeawayItems.reduce((a, b) => a + b.quantity, 0)} un
+                </span>
               </div>
-            )}
-
-            {/* Standard Customization Details */}
-            {!item.burger3DConfig && item.customization && (
-              <div className="pl-7 mt-1 space-y-0.5 text-[11px]">
-                {item.customization.selectedOption && (
-                  <div className="text-amber-300 font-bold bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded inline-block mr-1">
-                    Opção / Sabor: {item.customization.selectedOption}
-                  </div>
-                )}
-
-                {item.product.isBurger && (
-                  <div className="text-amber-400 font-bold">
-                    Ponto: {item.customization.meatDoneness}
-                  </div>
-                )}
-
-                {item.customization.removedIngredients.length > 0 && (
-                  <div className="text-red-400 font-bold bg-red-950/40 px-1.5 py-0.5 rounded inline-block">
-                    SEM: {item.customization.removedIngredients.join(', ')}
-                  </div>
-                )}
-
-                {Object.keys(item.customization.selectedAddons).length > 0 && (
-                  <div className="text-emerald-400 font-semibold">
-                    + Extras:{' '}
-                    {Object.entries(item.customization.selectedAddons)
-                      .map(([k, v]) => `${v}x ${k.replace('_', ' ')}`)
-                      .join(', ')}
-                  </div>
-                )}
-
-                {item.customization.specialNotes && (
-                  <div className="text-zinc-300 italic">
-                    Obs: "{item.customization.specialNotes}"
-                  </div>
-                )}
+              <div className="space-y-2">
+                {takeawayItems.map((item, idx) => renderKitchenItem(item, idx, true))}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2 text-xs">
+          {order.items.map((item, idx) =>
+            renderKitchenItem(item, idx, order.orderType === 'viagem')
+          )}
+        </div>
+      )}
 
       {/* General Order Observations */}
       {order.observations && (
@@ -851,6 +1113,16 @@ const OrderKitchenCard: React.FC<OrderKitchenCardProps> = ({
         )}
 
         {actionButton}
+
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full py-2 px-3 rounded-xl bg-red-950/35 hover:bg-red-900/55 text-red-300 hover:text-red-100 border border-red-800/50 hover:border-red-500/60 text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          title="Cancelar pedido errado e excluir do faturamento"
+        >
+          <Ban className="w-3.5 h-3.5 text-red-400 shrink-0" />
+          <span>Cancelar Pedido</span>
+        </button>
       </div>
     </div>
   );

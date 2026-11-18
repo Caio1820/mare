@@ -17,11 +17,19 @@
         "total": { "type": "number", "description": "Valor total a pagar no balcão" },
         "paymentMethod": { "type": "string", "description": "Método de pagamento (balcao)" },
         "paymentStatus": { "type": "string", "description": "Status de pagamento no balcão" },
-        "status": { "type": "string", "enum": ["recebido", "preparo", "pronto", "entregue"], "description": "Status no KDS" },
+        "status": { "type": "string", "enum": ["recebido", "preparo", "pronto", "entregue", "cancelado"], "description": "Status no KDS" },
         "createdAt": { "type": "number", "description": "Timestamp epoch de criação" },
         "formattedTime": { "type": "string", "description": "Horário formatado (HH:mm)" },
         "estimatedMinutes": { "type": "number", "description": "Tempo estimado em minutos" },
-        "announcedAt": { "type": "number", "description": "Timestamp de chamada na TV" }
+        "announcedAt": { "type": "number", "description": "Timestamp de chamada na TV" },
+        "autoPrinted": { "type": "boolean", "description": "Se já foi impresso automaticamente" },
+        "tableClosed": { "type": "boolean", "description": "Se a conta da mesa foi encerrada" },
+        "closedAt": { "type": "number", "description": "Timestamp do fechamento da mesa/conta" },
+        "clearedFromKds": { "type": "boolean", "description": "Se foi arquivado da fila visual do KDS" },
+        "clearedAt": { "type": "number", "description": "Timestamp de arquivamento do KDS" },
+        "roundNumber": { "type": "number", "description": "Número do envio na mesa" },
+        "cancelledAt": { "type": "number", "description": "Timestamp de cancelamento na cozinha" },
+        "cancelReason": { "type": "string", "maxLength": 200, "description": "Motivo opcional do cancelamento" }
       },
       "required": ["id", "orderNumber", "customerName", "orderType", "items", "total", "status", "createdAt"]
     }
@@ -29,7 +37,7 @@
   "firestore": {
     "/orders/{orderId}": {
       "schema": { "$ref": "#/entities/Order" },
-      "description": "Coleção central de pedidos do restaurante em tempo real"
+      "description": "Coleção central de pedidos e histórico diário/mensal do restaurante"
     }
   }
 }

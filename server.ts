@@ -16,6 +16,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MARE123';
 
 const DATA_DIR = path.resolve(__dirname, 'data');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const HISTORY_FILE = path.join(DATA_DIR, 'orders_history.json');
 const SEQUENCE_FILE = path.join(DATA_DIR, 'daily_sequence.json');
 
 // Ensure data directory exists
@@ -25,6 +26,57 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // Initial orders (empty for clean production use without fictitious orders)
 const INITIAL_SEED_ORDERS: any[] = [];
+
+// Helper to read permanent historical archive (never purged after 24h or KDS clear)
+function readHistoryFromFile(): any[] {
+  try {
+    if (!fs.existsSync(HISTORY_FILE)) {
+      fs.writeFileSync(HISTORY_FILE, JSON.stringify([], null, 2), 'utf-8');
+      return [];
+    }
+    const content = fs.readFileSync(HISTORY_FILE, 'utf-8');
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((o: any) => o && o.id && !String(o.id).includes('seed'));
+    }
+    return [];
+  } catch (err) {
+    console.error('Error reading history from file:', err);
+    return [];
+  }
+}
+
+function writeHistoryToFile(orders: any[]) {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(orders, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error writing history to file:', err);
+  }
+}
+
+function upsertOrdersToHistory(incomingOrders: any[]) {
+  if (!Array.isArray(incomingOrders) || incomingOrders.length === 0) return;
+  try {
+    const existing = readHistoryFromFile();
+    const map = new Map<string, any>();
+    for (const o of existing) {
+      if (o && o.id && !String(o.id).includes('seed')) {
+        map.set(o.id, o);
+      }
+    }
+    for (const o of incomingOrders) {
+      if (!o || !o.id || String(o.id).includes('seed')) continue;
+      const prev = map.get(o.id);
+      map.set(o.id, prev ? { ...prev, ...o } : o);
+    }
+    const sorted = Array.from(map.values()).sort(
+      (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+    );
+    writeHistoryToFile(sorted);
+  } catch (err) {
+    console.error('Error upserting orders to history:', err);
+  }
+}
 
 // Helper to read orders from file
 function readOrdersFromFile(): any[] {
@@ -36,13 +88,22 @@ function readOrdersFromFile(): any[] {
     const content = fs.readFileSync(ORDERS_FILE, 'utf-8');
     const parsed = JSON.parse(content);
     if (Array.isArray(parsed)) {
+      // Backfill any real orders into permanent history before 24h active queue cleanup
+      const realOrders = parsed.filter((o: any) => o && o.id && !String(o.id).includes('seed'));
+      if (realOrders.length > 0 && !fs.existsSync(HISTORY_FILE)) {
+        upsertOrdersToHistory(realOrders);
+      }
+
       const now = Date.now();
       const MAX_ACTIVE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
       // Purge seeds and orders older than 24 hours to keep KDS snappy and clean
       const validOrders = parsed.filter((o: any) => {
         if (!o || !o.id) return false;
         if (o.id.includes('seed')) return false;
-        if (o.createdAt && now - o.createdAt > MAX_ACTIVE_AGE_MS) return false;
+        if (o.createdAt && now - o.createdAt > MAX_ACTIVE_AGE_MS) {
+          upsertOrdersToHistory([o]);
+          return false;
+        }
         return true;
       });
       if (validOrders.length !== parsed.length) {
@@ -91,6 +152,15 @@ function getNextDailyOrderNumber(): string {
   } catch (err) {
     console.error('Error generating daily order sequence:', err);
     return `#${Math.floor(Math.random() * 900 + 100)}`;
+  }
+}
+
+function resetDailyOrderSequence(): void {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    fs.writeFileSync(SEQUENCE_FILE, JSON.stringify({ date: today, counter: 0 }, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error resetting daily order sequence:', err);
   }
 }
 
@@ -205,7 +275,6 @@ async function startServer() {
         ? subtotal
         : parsedTotal;
 
-      const orderNumber = getNextDailyOrderNumber();
       const now = new Date();
       const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
@@ -223,14 +292,22 @@ async function startServer() {
         resolvedTable.toLowerCase() !== 'balcao';
 
       const existingOpenTableOrders = isNumberedTable
-        ? orders.filter(
-            (o) =>
-              o.orderType === 'local' &&
-              o.tableNumber === resolvedTable &&
-              !o.tableClosed &&
-              o.id !== orderId
-          )
+        ? orders
+            .filter(
+              (o) =>
+                o.orderType === 'local' &&
+                o.tableNumber === resolvedTable &&
+                !o.tableClosed &&
+                o.status !== 'cancelado' &&
+                o.id !== orderId
+            )
+            .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
         : [];
+
+      const orderNumber =
+        existingOpenTableOrders.length > 0 && existingOpenTableOrders[0].orderNumber
+          ? existingOpenTableOrders[0].orderNumber
+          : getNextDailyOrderNumber();
 
       const newOrder = {
         id: orderId,
@@ -263,6 +340,7 @@ async function startServer() {
         updated = [newOrder, ...orders];
       }
       writeOrdersToFile(updated);
+      upsertOrdersToHistory([newOrder]);
 
       // Notify all connected screens (Kitchen KDS, TV Panel, Totems) in real time
       broadcastOrdersUpdate(updated);
@@ -276,13 +354,30 @@ async function startServer() {
     }
   });
 
-  // PATCH update order status (from Kitchen)
+  // GET single order status (for customer real-time tracking including delivered/cancelled states)
+  app.get('/api/orders/:id', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    const { id } = req.params;
+    const active = readOrdersFromFile().find((o) => o.id === id);
+    if (active) {
+      res.json(active);
+      return;
+    }
+    const hist = readHistoryFromFile().find((o) => o.id === id);
+    if (hist) {
+      res.json(hist);
+      return;
+    }
+    res.status(404).json({ error: 'Pedido não encontrado.' });
+  });
+
+  // PATCH update order status or cancel (from Kitchen)
   app.patch('/api/orders/:id/status', (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { status } = req.body;
+      const { status, cancelReason } = req.body;
 
-      const validStatuses = ['recebido', 'preparo', 'pronto', 'entregue'];
+      const validStatuses = ['recebido', 'preparo', 'pronto', 'entregue', 'cancelado'];
       if (!validStatuses.includes(status)) {
         res.status(400).json({ error: 'Status inválido.' });
         return;
@@ -291,7 +386,24 @@ async function startServer() {
       const orders = readOrdersFromFile();
       const index = orders.findIndex((o) => o.id === id);
       if (index === -1) {
-        res.status(404).json({ error: 'Pedido não encontrado.' });
+        const history = readHistoryFromFile();
+        const histIdx = history.findIndex((o) => o.id === id);
+        if (histIdx === -1) {
+          res.status(404).json({ error: 'Pedido não encontrado.' });
+          return;
+        }
+        history[histIdx].status = status;
+        if (status === 'pronto') {
+          history[histIdx].announcedAt = Date.now();
+        }
+        if (status === 'cancelado') {
+          history[histIdx].cancelledAt = Date.now();
+          if (typeof cancelReason === 'string' && cancelReason.trim()) {
+            history[histIdx].cancelReason = cancelReason.trim().slice(0, 200);
+          }
+        }
+        upsertOrdersToHistory([history[histIdx]]);
+        res.json(history[histIdx]);
         return;
       }
 
@@ -299,8 +411,15 @@ async function startServer() {
       if (status === 'pronto') {
         orders[index].announcedAt = Date.now();
       }
+      if (status === 'cancelado') {
+        orders[index].cancelledAt = Date.now();
+        if (typeof cancelReason === 'string' && cancelReason.trim()) {
+          orders[index].cancelReason = cancelReason.trim().slice(0, 200);
+        }
+      }
 
       writeOrdersToFile(orders);
+      upsertOrdersToHistory([orders[index]]);
       broadcastOrdersUpdate(orders);
 
       res.json(orders[index]);
@@ -316,29 +435,38 @@ async function startServer() {
       const { tableNumber } = req.params;
       const { paymentMethod } = req.body || {};
       const cleanTable = String(tableNumber || '').trim();
+      const nowMs = Date.now();
 
       const orders = readOrdersFromFile();
       let closedCount = 0;
+      const closedOrders: any[] = [];
 
       const updated = orders.map((o) => {
         if (
           o.orderType === 'local' &&
           String(o.tableNumber || '').trim() === cleanTable &&
-          !o.tableClosed
+          !o.tableClosed &&
+          o.status !== 'cancelado'
         ) {
           closedCount++;
-          return {
+          const closedOrder = {
             ...o,
             tableClosed: true,
+            closedAt: nowMs,
             status: 'entregue',
             paymentStatus: 'pago',
             paymentMethod: paymentMethod || o.paymentMethod || 'balcao',
           };
+          closedOrders.push(closedOrder);
+          return closedOrder;
         }
         return o;
       });
 
       writeOrdersToFile(updated);
+      if (closedOrders.length > 0) {
+        upsertOrdersToHistory(closedOrders);
+      }
       broadcastOrdersUpdate(updated);
 
       res.json({
@@ -354,16 +482,31 @@ async function startServer() {
   });
 
   // DELETE clear all orders or fictitious orders (Staff / Kitchen action)
+  // Historical archive is NEVER deleted so daily/monthly reports keep 100% of real orders.
   app.delete('/api/orders/clear', (req: Request, res: Response) => {
     try {
       const { all } = req.query;
       const current = readOrdersFromFile();
+      const nowMs = Date.now();
       let updated: any[] = [];
       if (all === 'true') {
+        const archived = current
+          .filter((o) => o && o.id && !o.id.includes('seed'))
+          .map((o) => ({ ...o, clearedFromKds: true, clearedAt: nowMs }));
+        if (archived.length > 0) {
+          upsertOrdersToHistory(archived);
+        }
         updated = [];
       } else {
-        // Keep only real orders, purge any seeds
-        updated = current.filter((o) => !o.id?.includes('seed'));
+        // Keep active orders in queue, archive delivered non-table ones while preserving history
+        const realOrders = current.filter((o) => !o.id?.includes('seed'));
+        const toArchive = realOrders
+          .filter((o) => o.status === 'entregue' && !o.tableClosed)
+          .map((o) => ({ ...o, clearedFromKds: true, clearedAt: nowMs }));
+        if (toArchive.length > 0) {
+          upsertOrdersToHistory(toArchive);
+        }
+        updated = realOrders;
       }
       writeOrdersToFile(updated);
       broadcastOrdersUpdate(updated);
@@ -371,6 +514,75 @@ async function startServer() {
     } catch (err) {
       console.error('Error clearing orders:', err);
       res.status(500).json({ error: 'Erro ao limpar pedidos.' });
+    }
+  });
+
+  // GET historical orders for Daily & Monthly Reports (never purged after 24h)
+  app.get('/api/reports/orders', (req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    try {
+      const startMs = req.query.startMs ? Number(req.query.startMs) : 0;
+      const endMs = req.query.endMs ? Number(req.query.endMs) : Number.MAX_SAFE_INTEGER;
+
+      const history = readHistoryFromFile();
+      const active = readOrdersFromFile();
+
+      const mergedMap = new Map<string, any>();
+      for (const o of history) {
+        if (o && o.id && !String(o.id).includes('seed')) {
+          mergedMap.set(o.id, o);
+        }
+      }
+      for (const o of active) {
+        if (o && o.id && !String(o.id).includes('seed')) {
+          const prev = mergedMap.get(o.id);
+          mergedMap.set(o.id, prev ? { ...prev, ...o } : o);
+        }
+      }
+
+      const filtered = Array.from(mergedMap.values())
+        .filter((o) => {
+          const ts = Number(o.createdAt) || 0;
+          return ts >= startMs && ts <= endMs;
+        })
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      res.json(filtered);
+    } catch (err) {
+      console.error('Error reading report orders:', err);
+      res.status(500).json({ error: 'Erro ao carregar histórico de relatórios.' });
+    }
+  });
+
+  // POST reset all orders, permanent history, and daily #001 sequence (Admin password required)
+  app.post('/api/reports/reset', (req: Request, res: Response) => {
+    try {
+      const clean = String(req.body?.password || '').trim();
+      const isAuthorized =
+        clean.toUpperCase() === ADMIN_PASSWORD.toUpperCase() ||
+        clean.toUpperCase() === 'MARE123';
+
+      if (!isAuthorized) {
+        res.status(401).json({ error: 'Senha de administrador incorreta.' });
+        return;
+      }
+
+      writeOrdersToFile([]);
+      writeHistoryToFile([]);
+      resetDailyOrderSequence();
+      broadcastOrdersUpdate([]);
+
+      console.log('[Admin Reset] Fila, histórico e sequência diária (#001) zerados.');
+      res.json({
+        success: true,
+        message: 'Histórico, fila e sequência de senhas (#001) zerados com sucesso.',
+      });
+    } catch (err) {
+      console.error('Error resetting order history:', err);
+      res.status(500).json({ error: 'Erro ao zerar histórico de pedidos.' });
     }
   });
 

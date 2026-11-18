@@ -286,7 +286,13 @@ export const TvPanel: React.FC<TvPanelProps> = ({ onBackToKiosk }) => {
                     </div>
 
                     <div className="text-xs text-zinc-400 pt-2 border-t border-zinc-850 flex items-center justify-between">
-                      <span>{order.orderType === 'local' ? `Mesa ${order.tableNumber || '01'}` : 'Para Viagem'}</span>
+                      <span>
+                        {order.orderType === 'local'
+                          ? `Mesa ${order.tableNumber || '01'}${
+                              order.items.some((it) => it.isTakeaway) ? ' (+ Viagem)' : ''
+                            }`
+                          : 'Para Viagem'}
+                      </span>
                       <span className="font-semibold text-emerald-400">Pronto</span>
                     </div>
                   </div>

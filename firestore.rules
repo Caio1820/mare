@@ -1,6 +1,47 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'orderNumber', 'customerName', 'orderType', 'items', 'total', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'orderNumber', 'customerName', 'customerPhone', 'orderType',
+          'tableNumber', 'items', 'observations', 'subtotal', 'total',
+          'paymentMethod', 'paymentStatus', 'status', 'createdAt',
+          'formattedTime', 'estimatedMinutes', 'announcedAt', 'autoPrinted',
+          'tableClosed', 'closedAt', 'clearedFromKds', 'clearedAt', 'roundNumber',
+          'cancelledAt', 'cancelReason'
+        ]) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.orderNumber is string && data.orderNumber.size() >= 1 && data.orderNumber.size() <= 32 &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 120 &&
+        data.orderType in ['local', 'viagem'] &&
+        data.items is list && data.items.size() >= 1 && data.items.size() <= 100 &&
+        data.total is number && data.total >= 0 &&
+        data.status in ['recebido', 'preparo', 'pronto', 'entregue', 'cancelado'] &&
+        data.createdAt is number && data.createdAt > 0 &&
+        (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 40)) &&
+        (!('tableNumber' in data) || (data.tableNumber is string && data.tableNumber.size() <= 32)) &&
+        (!('observations' in data) || (data.observations is string && data.observations.size() <= 500)) &&
+        (!('subtotal' in data) || (data.subtotal is number && data.subtotal >= 0)) &&
+        (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() <= 40)) &&
+        (!('paymentStatus' in data) || (data.paymentStatus is string && data.paymentStatus.size() <= 40)) &&
+        (!('formattedTime' in data) || (data.formattedTime is string && data.formattedTime.size() <= 20)) &&
+        (!('estimatedMinutes' in data) || data.estimatedMinutes is number) &&
+        (!('announcedAt' in data) || data.announcedAt is number) &&
+        (!('autoPrinted' in data) || data.autoPrinted is bool) &&
+        (!('tableClosed' in data) || data.tableClosed is bool) &&
+        (!('closedAt' in data) || data.closedAt is number) &&
+        (!('clearedFromKds' in data) || data.clearedFromKds is bool) &&
+        (!('clearedAt' in data) || data.clearedAt is number) &&
+        (!('roundNumber' in data) || data.roundNumber is number) &&
+        (!('cancelledAt' in data) || data.cancelledAt is number) &&
+        (!('cancelReason' in data) || (data.cancelReason is string && data.cancelReason.size() <= 200));
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
@@ -10,10 +51,16 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      allow read: if true;
-      allow create: if true;
-      allow update: if true;
-      allow delete: if false;
+      allow list: if true;
+      allow get: if isValidId(orderId);
+      allow create: if isValidId(orderId) &&
+        request.resource.data.id == orderId &&
+        isValidOrder(request.resource.data);
+      allow update: if isValidId(orderId) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        isValidOrder(request.resource.data);
+      allow delete: if isValidId(orderId);
     }
   }
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Printer, X, ChefHat, Receipt, Scissors, CheckCircle2, User, CreditCard } from 'lucide-react';
-import { Order } from '../types';
-import { OpenTableSummary } from '../utils/kdsStore';
+import { Printer, X, ChefHat, Receipt, Scissors, CheckCircle2, User } from 'lucide-react';
+import { CartItem, Order, OrdersReportSummary } from '../types';
+import { OpenTableSummary, partitionOrderItems } from '../utils/kdsStore';
 import { playTouchSound } from '../utils/sound';
 
 interface ThermalReceiptProps {
@@ -22,12 +22,59 @@ function escapeHtml(str: string): string {
 function getLocationLabel(order: Order): string {
   if (order.orderType === 'local') {
     const table = (order.tableNumber || '01').trim();
+    const { takeawayItems } = partitionOrderItems(order);
+    const suffix = takeawayItems.length > 0 ? ' (+ VIAGEM)' : '';
     if (table.toLowerCase() === 'balcão' || table.toLowerCase() === 'balcao') {
-      return 'BALCÃO (SALÃO)';
+      return `BALCÃO (SALÃO)${suffix}`;
     }
-    return `MESA ${table}`;
+    return `MESA ${table}${suffix}`;
   }
   return 'PARA VIAGEM';
+}
+
+function renderKitchenItemHtml(item: CartItem): string {
+  let detailsHtml = '';
+
+  if (item.burger3DConfig) {
+    const b = item.burger3DConfig;
+    detailsHtml += `<div class="sub-item">• ${escapeHtml(b.bunLabel)} | ${b.pattiesCount}x Carne (${escapeHtml(b.meatDoneness)})</div>`;
+    detailsHtml += `<div class="sub-item">• ${escapeHtml(b.cheeseLabel)} | ${escapeHtml(b.sauceLabel)}</div>`;
+    if (b.selectedAddons.bacon) detailsHtml += `<div class="sub-item">• + Bacon Crocante</div>`;
+    if (b.selectedAddons.cebola_caram) detailsHtml += `<div class="sub-item">• + Cebola Caram.</div>`;
+    if (b.selectedAddons.picles) detailsHtml += `<div class="sub-item">• + Picles</div>`;
+    if (b.selectedAddons.salada_mare) detailsHtml += `<div class="sub-item">• + Salada Maré</div>`;
+  } else if (item.customization) {
+    const c = item.customization;
+    if (c.selectedOption) {
+      detailsHtml += `<div class="sub-item bold" style="background:#000;color:#fff;padding:1px 3px;display:inline-block;margin:1px 0;">• OPÇÃO: ${escapeHtml(c.selectedOption.toUpperCase())}</div>`;
+    }
+    if (item.product.isBurger && c.meatDoneness) {
+      detailsHtml += `<div class="sub-item bold">• PONTO: ${escapeHtml(c.meatDoneness.toUpperCase())}</div>`;
+    }
+    if (c.removedIngredients && c.removedIngredients.length > 0) {
+      detailsHtml += `<div class="sub-item bold" style="text-decoration:underline;">• SEM: ${escapeHtml(c.removedIngredients.join(', ').toUpperCase())}</div>`;
+    }
+    const addonEntries = Object.entries(c.selectedAddons || {});
+    if (addonEntries.length > 0) {
+      const addonsText = addonEntries
+        .map(([addonId, qty]) => {
+          const found = item.product.suggestedAddons?.find((a) => a.id === addonId);
+          return `${qty}x ${found ? found.name : addonId.replace(/_/g, ' ')}`;
+        })
+        .join(', ');
+      detailsHtml += `<div class="sub-item bold">• + ${escapeHtml(addonsText)}</div>`;
+    }
+    if (c.specialNotes) {
+      detailsHtml += `<div class="sub-item" style="font-style:italic;">• Obs: ${escapeHtml(c.specialNotes)}</div>`;
+    }
+  }
+
+  return `
+    <div class="item-row">
+      <div class="item-title" style="font-size:13px;font-weight:900;">${item.quantity}x ${escapeHtml(item.product.name)}</div>
+      ${detailsHtml}
+    </div>
+  `;
 }
 
 /**
@@ -37,53 +84,30 @@ function getLocationLabel(order: Order): string {
 function buildKitchenHtml(order: Order): string {
   const formattedDate = new Date(order.createdAt).toLocaleString('pt-BR');
   const locationLabel = getLocationLabel(order);
+  const { localItems, takeawayItems } = partitionOrderItems(order);
+  const showGroupedBlocks = order.orderType === 'local' && takeawayItems.length > 0;
 
-  const itemsHtml = order.items
-    .map((item) => {
-      let detailsHtml = '';
-
-      if (item.burger3DConfig) {
-        const b = item.burger3DConfig;
-        detailsHtml += `<div class="sub-item">• ${escapeHtml(b.bunLabel)} | ${b.pattiesCount}x Carne (${escapeHtml(b.meatDoneness)})</div>`;
-        detailsHtml += `<div class="sub-item">• ${escapeHtml(b.cheeseLabel)} | ${escapeHtml(b.sauceLabel)}</div>`;
-        if (b.selectedAddons.bacon) detailsHtml += `<div class="sub-item">• + Bacon Crocante</div>`;
-        if (b.selectedAddons.cebola_caram) detailsHtml += `<div class="sub-item">• + Cebola Caram.</div>`;
-        if (b.selectedAddons.picles) detailsHtml += `<div class="sub-item">• + Picles</div>`;
-        if (b.selectedAddons.salada_mare) detailsHtml += `<div class="sub-item">• + Salada Maré</div>`;
-      } else if (item.customization) {
-        const c = item.customization;
-        if (c.selectedOption) {
-          detailsHtml += `<div class="sub-item bold" style="background:#000;color:#fff;padding:1px 3px;display:inline-block;margin:1px 0;">• OPÇÃO: ${escapeHtml(c.selectedOption.toUpperCase())}</div>`;
-        }
-        if (item.product.isBurger && c.meatDoneness) {
-          detailsHtml += `<div class="sub-item bold">• PONTO: ${escapeHtml(c.meatDoneness.toUpperCase())}</div>`;
-        }
-        if (c.removedIngredients && c.removedIngredients.length > 0) {
-          detailsHtml += `<div class="sub-item bold" style="text-decoration:underline;">• SEM: ${escapeHtml(c.removedIngredients.join(', ').toUpperCase())}</div>`;
-        }
-        const addonEntries = Object.entries(c.selectedAddons || {});
-        if (addonEntries.length > 0) {
-          const addonsText = addonEntries
-            .map(([addonId, qty]) => {
-              const found = item.product.suggestedAddons?.find((a) => a.id === addonId);
-              return `${qty}x ${found ? found.name : addonId.replace(/_/g, ' ')}`;
-            })
-            .join(', ');
-          detailsHtml += `<div class="sub-item bold">• + ${escapeHtml(addonsText)}</div>`;
-        }
-        if (c.specialNotes) {
-          detailsHtml += `<div class="sub-item" style="font-style:italic;">• Obs: ${escapeHtml(c.specialNotes)}</div>`;
-        }
-      }
-
-      return `
-        <div class="item-row">
-          <div class="item-title" style="font-size:13px;font-weight:900;">${item.quantity}x ${escapeHtml(item.product.name)}</div>
-          ${detailsHtml}
+  let itemsHtml = '';
+  if (showGroupedBlocks) {
+    if (localItems.length > 0) {
+      itemsHtml += `
+        <div style="margin:3px 0 2px 0;padding:2px 4px;border:1px solid #000;font-weight:900;font-size:10px;text-transform:uppercase;">
+          CONSUMO NA MESA (${localItems.reduce((a, b) => a + b.quantity, 0)}x)
         </div>
+        ${localItems.map(renderKitchenItemHtml).join('')}
       `;
-    })
-    .join('');
+    }
+    if (takeawayItems.length > 0) {
+      itemsHtml += `
+        <div style="margin:5px 0 2px 0;padding:2px 4px;background:#000;color:#fff;font-weight:900;font-size:10px;text-transform:uppercase;">
+          PARA VIAGEM · EMBALAR (${takeawayItems.reduce((a, b) => a + b.quantity, 0)}x)
+        </div>
+        ${takeawayItems.map(renderKitchenItemHtml).join('')}
+      `;
+    }
+  } else {
+    itemsHtml = order.items.map(renderKitchenItemHtml).join('');
+  }
 
   const obsHtml = order.observations
     ? `<div class="obs-box" style="border:2px solid #000;font-weight:bold;"><strong>OBS:</strong> ${escapeHtml(order.observations)}</div>`
@@ -91,7 +115,7 @@ function buildKitchenHtml(order: Order): string {
 
   const roundBadge =
     order.roundNumber && order.roundNumber > 1
-      ? `<div style="font-size:10px;font-weight:bold;margin-top:2px;background:#000;color:#fff;padding:1px 4px;display:inline-block;">★ ${order.roundNumber}º PEDIDO DA ${escapeHtml(locationLabel)}</div>`
+      ? `<div style="font-size:10px;font-weight:bold;margin-top:2px;background:#000;color:#fff;padding:1px 4px;display:inline-block;">${order.roundNumber}º ENVIO DA MESA</div>`
       : '';
 
   return `
@@ -121,6 +145,19 @@ function buildKitchenHtml(order: Order): string {
   `;
 }
 
+function renderCounterItemHtml(item: CartItem): string {
+  const optSuffix = item.customization?.selectedOption
+    ? ` (${escapeHtml(item.customization.selectedOption)})`
+    : '';
+  const priceStr = item.totalPrice.toFixed(2).replace('.', ',');
+  return `
+    <div class="counter-item-row">
+      <span>${item.quantity}x ${escapeHtml(item.product.name)}${optSuffix}</span>
+      <span class="bold">R$ ${priceStr}</span>
+    </div>
+  `;
+}
+
 /**
  * 2ª VIA: VIA DO BALCÃO / CAIXA
  * Formatação para controle financeiro interno do operador de caixa e atendente.
@@ -128,6 +165,9 @@ function buildKitchenHtml(order: Order): string {
 function buildCounterHtml(order: Order): string {
   const formattedDate = new Date(order.createdAt).toLocaleString('pt-BR');
   const locationLabel = getLocationLabel(order);
+  const { localItems, takeawayItems } = partitionOrderItems(order);
+  const showGroupedBlocks = order.orderType === 'local' && takeawayItems.length > 0;
+
   const paymentMethodLabel =
     order.paymentMethod === 'pix'
       ? 'PIX'
@@ -138,20 +178,27 @@ function buildCounterHtml(order: Order): string {
       : 'BALCÃO / GARÇOM';
   const paymentStatusLabel = order.paymentStatus === 'pago' ? '✓ PAGO' : 'PENDENTE';
 
-  const itemsHtml = order.items
-    .map((item) => {
-      const optSuffix = item.customization?.selectedOption
-        ? ` (${escapeHtml(item.customization.selectedOption)})`
-        : '';
-      const priceStr = item.totalPrice.toFixed(2).replace('.', ',');
-      return `
-        <div class="counter-item-row">
-          <span>${item.quantity}x ${escapeHtml(item.product.name)}${optSuffix}</span>
-          <span class="bold">R$ ${priceStr}</span>
+  let itemsHtml = '';
+  if (showGroupedBlocks) {
+    if (localItems.length > 0) {
+      itemsHtml += `
+        <div style="margin:2px 0;padding:1px 3px;border-bottom:1px solid #000;font-weight:900;font-size:9px;text-transform:uppercase;">
+          CONSUMO NA MESA
         </div>
+        ${localItems.map(renderCounterItemHtml).join('')}
       `;
-    })
-    .join('');
+    }
+    if (takeawayItems.length > 0) {
+      itemsHtml += `
+        <div style="margin:4px 0 2px 0;padding:1px 4px;background:#000;color:#fff;font-weight:900;font-size:9px;text-transform:uppercase;">
+          PARA VIAGEM (EMBALAR)
+        </div>
+        ${takeawayItems.map(renderCounterItemHtml).join('')}
+      `;
+    }
+  } else {
+    itemsHtml = order.items.map(renderCounterItemHtml).join('');
+  }
 
   const totalStr = order.total.toFixed(2).replace('.', ',');
 
@@ -192,6 +239,23 @@ function buildCounterHtml(order: Order): string {
   `;
 }
 
+function renderCustomerItemHtml(item: CartItem): string {
+  const opt = item.customization?.selectedOption
+    ? ` - ${escapeHtml(item.customization.selectedOption)}`
+    : '';
+  const unitStr = item.unitPrice.toFixed(2).replace('.', ',');
+  const totalStr = item.totalPrice.toFixed(2).replace('.', ',');
+  return `
+    <div class="counter-item-row" style="padding:2px 0;">
+      <div>
+        <div style="font-weight:bold;">${item.quantity}x ${escapeHtml(item.product.name)}${opt}</div>
+        <div style="font-size:9px;color:#333;">Unitário: R$ ${unitStr}</div>
+      </div>
+      <div style="font-weight:bold;text-align:right;">R$ ${totalStr}</div>
+    </div>
+  `;
+}
+
 /**
  * 3ª VIA: VIA DO CLIENTE (Cupom de Conferência / Comprovante de Pagamento)
  * Elegante, detalhada, perfeita para o garçom levar até a mesa ou entregar na mão do cliente.
@@ -202,6 +266,9 @@ function buildCustomerHtml(
 ): string {
   const formattedDate = new Date(order.createdAt).toLocaleString('pt-BR');
   const locationLabel = getLocationLabel(order);
+  const { localItems, takeawayItems } = partitionOrderItems(order);
+  const showGroupedBlocks = order.orderType === 'local' && takeawayItems.length > 0;
+
   const paymentMethodLabel =
     paymentDetailsOverride?.paymentMethodLabel ||
     (order.paymentMethod === 'pix'
@@ -213,22 +280,27 @@ function buildCustomerHtml(
       : 'PAGAMENTO NO CAIXA');
   const paymentStatusLabel = paymentDetailsOverride?.statusLabel || (order.paymentStatus === 'pago' ? 'PAGO' : 'A PAGAR');
 
-  const itemsHtml = order.items
-    .map((item) => {
-      const opt = item.customization?.selectedOption ? ` - ${escapeHtml(item.customization.selectedOption)}` : '';
-      const unitStr = item.unitPrice.toFixed(2).replace('.', ',');
-      const totalStr = item.totalPrice.toFixed(2).replace('.', ',');
-      return `
-        <div class="counter-item-row" style="padding:2px 0;">
-          <div>
-            <div style="font-weight:bold;">${item.quantity}x ${escapeHtml(item.product.name)}${opt}</div>
-            <div style="font-size:9px;color:#333;">Unitário: R$ ${unitStr}</div>
-          </div>
-          <div style="font-weight:bold;text-align:right;">R$ ${totalStr}</div>
+  let itemsHtml = '';
+  if (showGroupedBlocks) {
+    if (localItems.length > 0) {
+      itemsHtml += `
+        <div style="font-size:9px;font-weight:900;text-transform:uppercase;border-bottom:1px solid #000;padding-bottom:1px;margin:3px 0;">
+          Consumo na Mesa:
         </div>
+        ${localItems.map(renderCustomerItemHtml).join('')}
       `;
-    })
-    .join('');
+    }
+    if (takeawayItems.length > 0) {
+      itemsHtml += `
+        <div style="font-size:9px;font-weight:900;text-transform:uppercase;background:#000;color:#fff;padding:1px 4px;margin:4px 0 2px 0;">
+          Para Viagem (Embalar):
+        </div>
+        ${takeawayItems.map(renderCustomerItemHtml).join('')}
+      `;
+    }
+  } else {
+    itemsHtml = order.items.map(renderCustomerItemHtml).join('');
+  }
 
   const totalStr = order.total.toFixed(2).replace('.', ',');
 
@@ -522,40 +594,69 @@ export function printCustomerBill(
   document.body.appendChild(iframe);
 
   const nowStr = new Date().toLocaleString('pt-BR');
-  const roundsHtml = tableSummary.orders
-    .map((ord, idx) => {
-      const timeStr =
-        ord.formattedTime ||
-        new Date(ord.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      const itemsRows = ord.items
-        .map((it) => {
-          const opt = it.customization?.selectedOption
-            ? ` (${escapeHtml(it.customization.selectedOption)})`
-            : '';
-          const unitStr = it.unitPrice.toFixed(2).replace('.', ',');
-          const priceStr = it.totalPrice.toFixed(2).replace('.', ',');
-          return `
-            <div class="counter-item-row" style="padding:1.5px 0;">
-              <div>
-                <span>${it.quantity}x ${escapeHtml(it.product.name)}${opt}</span>
-                <span style="font-size:8px;color:#555;"> (R$ ${unitStr})</span>
-              </div>
-              <span class="bold">R$ ${priceStr}</span>
-            </div>
-          `;
-        })
-        .join('');
+  const allItems = tableSummary.orders.flatMap((ord) => ord.items || []);
+  const localItems = allItems.filter((it) => !it.isTakeaway);
+  const takeawayItems = allItems.filter((it) => !!it.isTakeaway);
+  const hasMixed = localItems.length > 0 && takeawayItems.length > 0;
 
-      return `
+  const renderBillRow = (it: CartItem) => {
+    const opt = it.customization?.selectedOption
+      ? ` (${escapeHtml(it.customization.selectedOption)})`
+      : '';
+    const unitStr = it.unitPrice.toFixed(2).replace('.', ',');
+    const priceStr = it.totalPrice.toFixed(2).replace('.', ',');
+    return `
+      <div class="counter-item-row" style="padding:1.5px 0;">
+        <div>
+          <span>${it.quantity}x ${escapeHtml(it.product.name)}${opt}</span>
+          <span style="font-size:8px;color:#555;"> (R$ ${unitStr})</span>
+        </div>
+        <span class="bold">R$ ${priceStr}</span>
+      </div>
+    `;
+  };
+
+  let roundsHtml = '';
+  if (hasMixed || takeawayItems.length > 0) {
+    if (localItems.length > 0) {
+      roundsHtml += `
         <div class="item-row" style="padding:4px 0;">
-          <div style="font-size:10px;font-weight:bold;margin-bottom:2px;background:#f3f4f6;padding:1px 3px;">
-            ${idx + 1}º Pedido (${escapeHtml(ord.orderNumber)}) · ${escapeHtml(timeStr)}
+          <div style="font-size:10px;font-weight:bold;margin-bottom:2px;background:#f3f4f6;padding:1px 3px;text-transform:uppercase;">
+            Consumo na Mesa
           </div>
-          ${itemsRows}
+          ${localItems.map(renderBillRow).join('')}
         </div>
       `;
-    })
-    .join('');
+    }
+    if (takeawayItems.length > 0) {
+      roundsHtml += `
+        <div class="item-row" style="padding:4px 0;">
+          <div style="font-size:10px;font-weight:bold;margin-bottom:2px;background:#000;color:#fff;padding:1px 3px;text-transform:uppercase;">
+            Para Viagem (Embalar)
+          </div>
+          ${takeawayItems.map(renderBillRow).join('')}
+        </div>
+      `;
+    }
+  } else {
+    roundsHtml = tableSummary.orders
+      .map((ord, idx) => {
+        const timeStr =
+          ord.formattedTime ||
+          new Date(ord.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const itemsRows = ord.items.map(renderBillRow).join('');
+
+        return `
+          <div class="item-row" style="padding:4px 0;">
+            <div style="font-size:10px;font-weight:bold;margin-bottom:2px;background:#f3f4f6;padding:1px 3px;">
+              ${idx + 1}º Envio (${escapeHtml(ord.orderNumber)}) · ${escapeHtml(timeStr)}
+            </div>
+            ${itemsRows}
+          </div>
+        `;
+      })
+      .join('');
+  }
 
   const grandTotalStr = tableSummary.totalAmount.toFixed(2).replace('.', ',');
 
@@ -617,8 +718,8 @@ export function printCustomerBill(
         <strong style="font-size:12px;">${escapeHtml(tableSummary.customerName.toUpperCase())}</strong>
       </div>
       <div class="flex-between">
-        <span>TOTAL DE PEDIDOS:</span>
-        <strong>${tableSummary.orders.length} PEDIDO(S) (${tableSummary.totalItemsCount} ITENS)</strong>
+        <span>SENHA DA MESA:</span>
+        <strong>${escapeHtml(tableSummary.orderNumber)} (${tableSummary.totalItemsCount} ITENS)</strong>
       </div>
     </div>
     <div class="items-section">
@@ -635,6 +736,340 @@ export function printCustomerBill(
     <div style="text-align:center;font-size:9px;margin-top:6px;padding-top:4px;border-top:1px dotted #888;">
       Obrigado por saborear com a gente!<br />
       Atendimento na mesa por nossa equipe.
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+  if (!iframeDoc) return;
+  iframeDoc.open();
+  iframeDoc.write(docContent);
+  iframeDoc.close();
+
+  setTimeout(() => {
+    const win = iframe.contentWindow;
+    if (!win) return;
+    try {
+      win.focus();
+      win.print();
+    } catch {
+      // ignore
+    }
+  }, 150);
+}
+
+/**
+ * Imprime o Relatório Gerencial do Dia ou Mês em bobina térmica 80mm (Elgin i7 Plus).
+ */
+export function printThermalReport(
+  summary: OrdersReportSummary,
+  periodLabel: string
+): void {
+  const existingIframe = document.getElementById('mare-thermal-print-iframe');
+  if (existingIframe) {
+    existingIframe.remove();
+  }
+
+  const iframe = document.createElement('iframe');
+  iframe.id = 'mare-thermal-print-iframe';
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
+
+  const fmtBRL = (val: number) => `R$ ${(Number(val) || 0).toFixed(2).replace('.', ',')}`;
+  const nowStr = new Date().toLocaleString('pt-BR');
+  const titleBadge =
+    summary.periodType === 'day'
+      ? 'RELATÓRIO DE VENDAS DO DIA'
+      : 'RELATÓRIO DE VENDAS DO MÊS';
+
+  const paymentsHtml = summary.paymentBreakdown
+    .filter((p) => p.count > 0 || p.total > 0)
+    .map(
+      (p) => `
+      <div class="flex-between" style="padding:1.5px 0;">
+        <span>${escapeHtml(p.label.toUpperCase())} (${p.count})</span>
+        <span class="bold">${fmtBRL(p.total)}</span>
+      </div>`
+    )
+    .join('') || '<div style="font-size:9px;color:#555;">Sem pagamentos no período.</div>';
+
+  const topItemsHtml = summary.topProducts
+    .slice(0, 10)
+    .map(
+      (item, idx) => `
+      <div class="flex-between" style="padding:1.5px 0;border-bottom:1px dotted #ccc;">
+        <span>${idx + 1}. ${item.quantity}x ${escapeHtml(item.name)}</span>
+        <span class="bold">${fmtBRL(item.revenue)}</span>
+      </div>`
+    )
+    .join('') || '<div style="font-size:9px;color:#555;">Nenhum item vendido.</div>';
+
+  const cancelledLineHtml =
+    summary.cancelledOrdersCount > 0
+      ? `<div class="flex-between" style="margin-top:2px;color:#333;">
+          <span>Cancelados (excluídos):</span>
+          <span class="bold">${summary.cancelledOrdersCount} (${fmtBRL(summary.cancelledTotal)})</span>
+        </div>`
+      : '';
+
+  const docContent = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Relatório ${escapeHtml(periodLabel)}</title>
+  <style>
+    @page { margin: 0mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 72mm;
+      background: #ffffff;
+      color: #000000;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .receipt-page { width: 72mm; padding: 2mm 1mm 6mm 1mm; }
+    .badge {
+      display: inline-block;
+      background: #000;
+      color: #fff;
+      font-weight: bold;
+      font-size: 10px;
+      padding: 2px 6px;
+      text-transform: uppercase;
+    }
+    .section { padding: 5px 0; border-bottom: 1px dashed #000; font-size: 10px; }
+    .section-title { font-weight: 900; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; }
+    .flex-between { display: flex; justify-content: space-between; gap: 6px; }
+    .bold { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="receipt-page">
+    <div style="text-align:center;border-bottom:1px solid #000;padding-bottom:5px;">
+      <div style="font-size:14px;font-weight:900;letter-spacing:1px;">MARÉ HAMBURGUERIA</div>
+      <div style="margin-top:3px;"><span class="badge">${titleBadge}</span></div>
+      <div style="font-size:11px;font-weight:bold;margin-top:3px;">${escapeHtml(periodLabel.toUpperCase())}</div>
+      <div style="font-size:8px;color:#333;margin-top:1px;">Emitido em: ${escapeHtml(nowStr)}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">RESUMO FINANCEIRO</div>
+      <div class="flex-between" style="font-size:13px;font-weight:900;padding:2px 0;">
+        <span>FATURAMENTO:</span>
+        <span>${fmtBRL(summary.totalRevenue)}</span>
+      </div>
+      <div class="flex-between">
+        <span>Pedidos Válidos:</span>
+        <span class="bold">${summary.totalOrders}</span>
+      </div>
+      <div class="flex-between">
+        <span>Ticket Médio:</span>
+        <span class="bold">${fmtBRL(summary.averageTicket)}</span>
+      </div>
+      <div class="flex-between">
+        <span>Recebido (Pago):</span>
+        <span class="bold">${fmtBRL(summary.paidRevenue)}</span>
+      </div>
+      <div class="flex-between">
+        <span>Em Aberto (Caixa/Mesa):</span>
+        <span class="bold">${fmtBRL(summary.pendingRevenue)}</span>
+      </div>
+      ${cancelledLineHtml}
+    </div>
+
+    <div class="section">
+      <div class="section-title">MODALIDADE DE CONSUMO</div>
+      <div class="flex-between">
+        <span>Pedidos Salão / Mesa:</span>
+        <span class="bold">${summary.localOrdersCount}</span>
+      </div>
+      <div class="flex-between">
+        <span>Pedidos Viagem / Balcão:</span>
+        <span class="bold">${summary.viagemOrdersCount}</span>
+      </div>
+      <div class="flex-between">
+        <span>Itens Totais (${summary.localItemsCount} Mesa / ${summary.takeawayItemsCount} Viagem):</span>
+        <span class="bold">${summary.totalItemsCount} un</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">FORMAS DE PAGAMENTO</div>
+      ${paymentsHtml}
+    </div>
+
+    <div class="section" style="border-bottom:none;">
+      <div class="section-title">TOP ITENS MAIS VENDIDOS</div>
+      ${topItemsHtml}
+    </div>
+
+    <div style="text-align:center;font-size:9px;margin-top:6px;padding-top:4px;border-top:1px dashed #000;">
+      CONFERÊNCIA GERENCIAL · COZINHA MARÉ
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+  if (!iframeDoc) return;
+  iframeDoc.open();
+  iframeDoc.write(docContent);
+  iframeDoc.close();
+
+  setTimeout(() => {
+    const win = iframe.contentWindow;
+    if (!win) return;
+    try {
+      win.focus();
+      win.print();
+    } catch {
+      // ignore
+    }
+  }, 150);
+}
+
+/**
+ * Imprime o Relatório de Fechamento de Caixa em bobina térmica 80mm (Elgin i7 Plus).
+ */
+export function printCashClosingThermal(
+  summary: OrdersReportSummary,
+  periodLabel: string,
+  operatorNote?: string
+): void {
+  const existingIframe = document.getElementById('mare-thermal-print-iframe');
+  if (existingIframe) {
+    existingIframe.remove();
+  }
+
+  const iframe = document.createElement('iframe');
+  iframe.id = 'mare-thermal-print-iframe';
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
+
+  const fmtBRL = (val: number) => `R$ ${(Number(val) || 0).toFixed(2).replace('.', ',')}`;
+  const nowStr = new Date().toLocaleString('pt-BR');
+
+  const breakdownHtml = summary.paymentBreakdown
+    .map(
+      (p) => `
+      <div style="padding:3px 0;border-bottom:1px dotted #bbb;">
+        <div class="flex-between bold">
+          <span>${escapeHtml(p.label.toUpperCase())} (${p.count} ped.)</span>
+          <span>${fmtBRL(p.total)}</span>
+        </div>
+        <div class="flex-between" style="font-size:9px;color:#222;">
+          <span>Recebido (Pago):</span>
+          <span>${fmtBRL(p.paidTotal)}</span>
+        </div>
+        <div class="flex-between" style="font-size:9px;color:#222;">
+          <span>Em Aberto:</span>
+          <span>${fmtBRL(p.pendingTotal)}</span>
+        </div>
+      </div>`
+    )
+    .join('');
+
+  const cleanNote = (operatorNote || '').trim();
+  const noteHtml = cleanNote
+    ? `<div class="section">
+        <div class="section-title">OBSERVAÇÃO DO OPERADOR</div>
+        <div style="font-size:10px;white-space:pre-wrap;">${escapeHtml(cleanNote)}</div>
+      </div>`
+    : '';
+
+  const docContent = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fechamento de Caixa - ${escapeHtml(periodLabel)}</title>
+  <style>
+    @page { margin: 0mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 72mm;
+      background: #ffffff;
+      color: #000000;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .receipt-page { width: 72mm; padding: 2mm 1mm 6mm 1mm; }
+    .badge {
+      display: inline-block;
+      background: #000;
+      color: #fff;
+      font-weight: bold;
+      font-size: 10px;
+      padding: 2px 6px;
+      text-transform: uppercase;
+    }
+    .section { padding: 5px 0; border-bottom: 1px dashed #000; font-size: 10px; }
+    .section-title { font-weight: 900; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; }
+    .flex-between { display: flex; justify-content: space-between; gap: 6px; }
+    .bold { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="receipt-page">
+    <div style="text-align:center;border-bottom:1px solid #000;padding-bottom:5px;">
+      <div style="font-size:14px;font-weight:900;letter-spacing:1px;">MARÉ HAMBURGUERIA</div>
+      <div style="margin-top:3px;"><span class="badge">FECHAMENTO DE CAIXA</span></div>
+      <div style="font-size:11px;font-weight:bold;margin-top:3px;">${escapeHtml(periodLabel.toUpperCase())}</div>
+      <div style="font-size:8px;color:#333;margin-top:1px;">Conferido em: ${escapeHtml(nowStr)}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">TOTAIS DO CAIXA</div>
+      <div class="flex-between" style="font-size:12px;font-weight:900;padding:2px 0;">
+        <span>RECEBIDO (PAGO):</span>
+        <span>${fmtBRL(summary.paidRevenue)}</span>
+      </div>
+      <div class="flex-between">
+        <span>Em Aberto (Mesas/Caixa):</span>
+        <span class="bold">${fmtBRL(summary.pendingRevenue)}</span>
+      </div>
+      <div class="flex-between" style="border-top:1px dotted #888;margin-top:2px;padding-top:2px;">
+        <span class="bold">Faturamento Válido:</span>
+        <span class="bold">${fmtBRL(summary.totalRevenue)}</span>
+      </div>
+      <div class="flex-between">
+        <span>Pedidos Válidos:</span>
+        <span class="bold">${summary.totalOrders}</span>
+      </div>
+      <div class="flex-between">
+        <span>Cancelados (Excluídos):</span>
+        <span class="bold">${summary.cancelledOrdersCount} (${fmtBRL(summary.cancelledTotal)})</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">CONFERÊNCIA POR PAGAMENTO</div>
+      ${breakdownHtml}
+    </div>
+
+    ${noteHtml}
+
+    <div style="padding-top:14px;text-align:center;font-size:9px;">
+      <div style="border-top:1px solid #000;margin:0 8mm 3px 8mm;"></div>
+      <div>ASSINATURA DO OPERADOR / CAIXA</div>
     </div>
   </div>
 </body>
@@ -719,6 +1154,63 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     }
   }, [autoPrint, handlePrintKitchenOnly]);
 
+  const { localItems, takeawayItems } = partitionOrderItems(order);
+  const showGroupedBlocks = order.orderType === 'local' && takeawayItems.length > 0;
+
+  const renderKitchenPreviewItem = (item: CartItem, idx: number) => (
+    <div key={item.cartItemId || idx} className="pb-1 border-b border-dotted border-zinc-400 last:border-none">
+      <div className="font-bold text-[11px]">
+        {item.quantity}x {item.product.name}
+      </div>
+      {item.burger3DConfig && (
+        <div className="text-[9px] pl-2">
+          <div>
+            • {item.burger3DConfig.bunLabel} | {item.burger3DConfig.pattiesCount}x Carne (
+            {item.burger3DConfig.meatDoneness})
+          </div>
+          <div>
+            • {item.burger3DConfig.cheeseLabel} | {item.burger3DConfig.sauceLabel}
+          </div>
+          {item.burger3DConfig.selectedAddons.bacon && <div>• + Bacon Crocante</div>}
+          {item.burger3DConfig.selectedAddons.cebola_caram && <div>• + Cebola Caram.</div>}
+          {item.burger3DConfig.selectedAddons.picles && <div>• + Picles</div>}
+          {item.burger3DConfig.selectedAddons.salada_mare && <div>• + Salada Maré</div>}
+        </div>
+      )}
+      {!item.burger3DConfig && item.customization && (
+        <div className="text-[9px] pl-2">
+          {item.customization.selectedOption && (
+            <div className="font-bold uppercase">
+              • OPÇÃO: {item.customization.selectedOption}
+            </div>
+          )}
+          {item.product.isBurger && item.customization.meatDoneness && (
+            <div>• Ponto: {item.customization.meatDoneness}</div>
+          )}
+          {item.customization.removedIngredients.length > 0 && (
+            <div className="font-bold uppercase">
+              • SEM: {item.customization.removedIngredients.join(', ')}
+            </div>
+          )}
+          {Object.keys(item.customization.selectedAddons).length > 0 && (
+            <div className="font-bold">
+              • +{' '}
+              {Object.entries(item.customization.selectedAddons)
+                .map(([addonId, qty]) => {
+                  const found = item.product.suggestedAddons?.find((a) => a.id === addonId);
+                  return `${qty}x ${found ? found.name : addonId.replace(/_/g, ' ')}`;
+                })
+                .join(', ')}
+            </div>
+          )}
+          {item.customization.specialNotes && (
+            <div>• Obs: {item.customization.specialNotes}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   // Preview das 3 Vias
   const kitchenReceipt = (
     <div className="bg-white text-black font-mono text-[10px] leading-snug p-2.5 w-full max-w-[300px] mx-auto rounded-lg shadow">
@@ -739,60 +1231,29 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         <strong>CLIENTE:</strong> {order.customerName}
       </div>
 
-      <div className="py-1.5 space-y-1">
-        {order.items.map((item, idx) => (
-          <div key={idx} className="pb-1 border-b border-dotted border-zinc-400 last:border-none">
-            <div className="font-bold text-[11px]">
-              {item.quantity}x {item.product.name}
-            </div>
-            {item.burger3DConfig && (
-              <div className="text-[9px] pl-2">
-                <div>
-                  • {item.burger3DConfig.bunLabel} | {item.burger3DConfig.pattiesCount}x Carne (
-                  {item.burger3DConfig.meatDoneness})
+      <div className="py-1.5 space-y-1.5">
+        {showGroupedBlocks ? (
+          <>
+            {localItems.length > 0 && (
+              <div className="space-y-1">
+                <div className="border border-black px-1 py-0.5 font-bold text-[9px] uppercase">
+                  CONSUMO NA MESA
                 </div>
-                <div>
-                  • {item.burger3DConfig.cheeseLabel} | {item.burger3DConfig.sauceLabel}
-                </div>
-                {item.burger3DConfig.selectedAddons.bacon && <div>• + Bacon Crocante</div>}
-                {item.burger3DConfig.selectedAddons.cebola_caram && <div>• + Cebola Caram.</div>}
-                {item.burger3DConfig.selectedAddons.picles && <div>• + Picles</div>}
-                {item.burger3DConfig.selectedAddons.salada_mare && <div>• + Salada Maré</div>}
+                {localItems.map(renderKitchenPreviewItem)}
               </div>
             )}
-            {!item.burger3DConfig && item.customization && (
-              <div className="text-[9px] pl-2">
-                {item.customization.selectedOption && (
-                  <div className="font-bold uppercase">
-                    • OPÇÃO: {item.customization.selectedOption}
-                  </div>
-                )}
-                {item.product.isBurger && item.customization.meatDoneness && (
-                  <div>• Ponto: {item.customization.meatDoneness}</div>
-                )}
-                {item.customization.removedIngredients.length > 0 && (
-                  <div className="font-bold uppercase">
-                    • SEM: {item.customization.removedIngredients.join(', ')}
-                  </div>
-                )}
-                {Object.keys(item.customization.selectedAddons).length > 0 && (
-                  <div className="font-bold">
-                    • +{' '}
-                    {Object.entries(item.customization.selectedAddons)
-                      .map(([addonId, qty]) => {
-                        const found = item.product.suggestedAddons?.find((a) => a.id === addonId);
-                        return `${qty}x ${found ? found.name : addonId.replace(/_/g, ' ')}`;
-                      })
-                      .join(', ')}
-                  </div>
-                )}
-                {item.customization.specialNotes && (
-                  <div>• Obs: {item.customization.specialNotes}</div>
-                )}
+            {takeawayItems.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <div className="bg-black text-white px-1 py-0.5 font-bold text-[9px] uppercase">
+                  PARA VIAGEM · EMBALAR
+                </div>
+                {takeawayItems.map(renderKitchenPreviewItem)}
               </div>
             )}
-          </div>
-        ))}
+          </>
+        ) : (
+          order.items.map(renderKitchenPreviewItem)
+        )}
       </div>
 
       {order.observations && (
@@ -831,25 +1292,64 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
               ? 'PIX'
               : order.paymentMethod === 'cartao_balcao'
               ? 'CARTÃO'
-              : 'DINHEIRO'}
+              : order.paymentMethod === 'dinheiro_balcao'
+              ? 'DINHEIRO'
+              : 'BALCÃO'}
             {' · '}
             {order.paymentStatus === 'pago' ? '✓ PAGO' : 'PENDENTE'}
           </strong>
         </div>
       </div>
 
-      <div className="py-1 border-b border-dashed border-black space-y-0.5">
-        {order.items.map((item, idx) => (
-          <div key={idx} className="text-[9px]">
-            <div className="flex justify-between">
-              <span>
-                {item.quantity}x {item.product.name}
-                {item.customization?.selectedOption ? ` (${item.customization.selectedOption})` : ''}
-              </span>
-              <span className="font-bold">R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+      <div className="py-1 border-b border-dashed border-black space-y-1">
+        {showGroupedBlocks ? (
+          <>
+            {localItems.length > 0 && (
+              <div className="space-y-0.5">
+                <div className="font-bold text-[8px] uppercase border-b border-black">
+                  Consumo na Mesa
+                </div>
+                {localItems.map((item, idx) => (
+                  <div key={item.cartItemId || idx} className="text-[9px] flex justify-between">
+                    <span>
+                      {item.quantity}x {item.product.name}
+                      {item.customization?.selectedOption ? ` (${item.customization.selectedOption})` : ''}
+                    </span>
+                    <span className="font-bold">R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {takeawayItems.length > 0 && (
+              <div className="space-y-0.5 pt-0.5">
+                <div className="font-bold text-[8px] uppercase bg-black text-white px-1">
+                  Para Viagem (Embalar)
+                </div>
+                {takeawayItems.map((item, idx) => (
+                  <div key={item.cartItemId || idx} className="text-[9px] flex justify-between">
+                    <span>
+                      {item.quantity}x {item.product.name}
+                      {item.customization?.selectedOption ? ` (${item.customization.selectedOption})` : ''}
+                    </span>
+                    <span className="font-bold">R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          order.items.map((item, idx) => (
+            <div key={idx} className="text-[9px]">
+              <div className="flex justify-between">
+                <span>
+                  {item.quantity}x {item.product.name}
+                  {item.customization?.selectedOption ? ` (${item.customization.selectedOption})` : ''}
+                </span>
+                <span className="font-bold">R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       <div className="pt-1 flex justify-between text-xs font-black">
@@ -883,15 +1383,50 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         </div>
       </div>
 
-      <div className="py-1 border-b border-dashed border-black space-y-0.5 text-[9px]">
-        {order.items.map((item, idx) => (
-          <div key={idx} className="flex justify-between">
-            <span>
-              {item.quantity}x {item.product.name}
-            </span>
-            <span>R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
-          </div>
-        ))}
+      <div className="py-1 border-b border-dashed border-black space-y-1 text-[9px]">
+        {showGroupedBlocks ? (
+          <>
+            {localItems.length > 0 && (
+              <div className="space-y-0.5">
+                <div className="font-bold text-[8px] uppercase border-b border-black">
+                  Consumo na Mesa
+                </div>
+                {localItems.map((item, idx) => (
+                  <div key={item.cartItemId || idx} className="flex justify-between">
+                    <span>
+                      {item.quantity}x {item.product.name}
+                    </span>
+                    <span>R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {takeawayItems.length > 0 && (
+              <div className="space-y-0.5 pt-0.5">
+                <div className="font-bold text-[8px] uppercase bg-black text-white px-1">
+                  Para Viagem (Embalar)
+                </div>
+                {takeawayItems.map((item, idx) => (
+                  <div key={item.cartItemId || idx} className="flex justify-between">
+                    <span>
+                      {item.quantity}x {item.product.name}
+                    </span>
+                    <span>R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          order.items.map((item, idx) => (
+            <div key={idx} className="flex justify-between">
+              <span>
+                {item.quantity}x {item.product.name}
+              </span>
+              <span>R$ {item.totalPrice.toFixed(2).replace('.', ',')}</span>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="pt-1 flex justify-between text-xs font-black">

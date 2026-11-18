@@ -18,6 +18,7 @@ interface Step3CatalogProps {
   onChangeOrderType?: () => void;
   openTableSummary?: OpenTableSummary;
   onOpenTablesModal?: () => void;
+  isQrTableLocked?: boolean;
 }
 
 export const Step3Catalog: React.FC<Step3CatalogProps> = ({
@@ -31,6 +32,7 @@ export const Step3Catalog: React.FC<Step3CatalogProps> = ({
   onChangeOrderType,
   openTableSummary,
   onOpenTablesModal,
+  isQrTableLocked = false,
 }) => {
   const [activeCategory, setActiveCategory] = useState<CategoryId>('artesanais');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -191,14 +193,24 @@ export const Step3Catalog: React.FC<Step3CatalogProps> = ({
                     onOpenTablesModal();
                   }}
                   className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold text-[11px] sm:text-xs flex items-center gap-1 transition-all active:scale-95 border border-emerald-500/30 whitespace-nowrap min-h-[32px]"
-                  title="Ver conta da mesa aberta ou trocar de mesa"
+                  title={
+                    isQrTableLocked
+                      ? `Ver pedidos da Mesa ${tableNumber || '01'}`
+                      : 'Ver conta da mesa aberta ou trocar de mesa'
+                  }
                 >
                   <Receipt className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>{openTableSummary ? 'Conta da Mesa' : 'Mesas'}</span>
+                  <span>
+                    {isQrTableLocked
+                      ? `Minha Mesa ${tableNumber || '01'}`
+                      : openTableSummary
+                      ? 'Conta da Mesa'
+                      : 'Mesas'}
+                  </span>
                 </button>
               )}
 
-              {onChangeOrderType && (
+              {onChangeOrderType && !isQrTableLocked && (
                 <button
                   onClick={() => {
                     playTouchSound(520);

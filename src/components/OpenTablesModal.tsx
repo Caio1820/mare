@@ -16,9 +16,10 @@ import {
   QrCode,
   Check,
   LayoutGrid,
+  ShoppingBag,
 } from 'lucide-react';
-import { Order, OrderStatus, PaymentMethod } from '../types';
-import { OpenTableSummary, getOpenTablesMap, closeTableTab } from '../utils/kdsStore';
+import { CartItem, Order, OrderStatus, PaymentMethod } from '../types';
+import { OpenTableSummary, getOpenTablesMap, closeTableTab, partitionOrderItems } from '../utils/kdsStore';
 import { printCustomerBill } from './ThermalReceipt';
 import { playTouchSound, playSuccessChime } from '../utils/sound';
 
@@ -27,6 +28,7 @@ interface OpenTablesModalProps {
   onClose: () => void;
   orders: Order[];
   activeTableNumber?: string;
+  lockedTableNumber?: string;
   onSelectTableForOrder: (tableNumber: string, existingCustomerName?: string) => void;
   isStaffMode?: boolean;
 }
@@ -59,6 +61,12 @@ function getStatusBadge(status: OrderStatus) {
           ✓ Na Mesa
         </span>
       );
+    case 'cancelado':
+      return (
+        <span className="px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-bold uppercase whitespace-nowrap">
+          Cancelado
+        </span>
+      );
   }
 }
 
@@ -67,12 +75,15 @@ export const OpenTablesModal: React.FC<OpenTablesModalProps> = ({
   onClose,
   orders,
   activeTableNumber,
+  lockedTableNumber,
   onSelectTableForOrder,
+  isStaffMode = false,
 }) => {
   const openTablesMap = getOpenTablesMap(orders);
   const openTableKeys = Object.keys(openTablesMap).sort();
 
-  const [selectedTable, setSelectedTable] = useState<string>(() => {
+  const [selectedTableState, setSelectedTable] = useState<string>(() => {
+    if (lockedTableNumber) return lockedTableNumber;
     if (activeTableNumber && activeTableNumber !== 'Balcão') return activeTableNumber;
     if (openTableKeys.length > 0) return openTableKeys[0];
     return '01';
@@ -91,6 +102,35 @@ export const OpenTablesModal: React.FC<OpenTablesModalProps> = ({
   const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const isLockedSingleTable = !isStaffMode && !!lockedTableNumber;
+  const isAccessBlocked = !isStaffMode && !lockedTableNumber;
+  const selectedTable = isLockedSingleTable ? lockedTableNumber! : selectedTableState;
+
+  if (isAccessBlocked) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-md p-6 text-center space-y-4 shadow-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/35 text-amber-400 flex items-center justify-center mx-auto">
+            <UtensilsCrossed className="w-6 h-6" />
+          </div>
+          <h3 className="font-display text-xl font-bold uppercase text-zinc-100">
+            Acesso Exclusivo do Balcão
+          </h3>
+          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+            A consulta e o fechamento das contas de todas as mesas são permitidos somente pela equipe do balcão/cozinha.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-display font-bold text-xs uppercase tracking-wider min-h-[44px]"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const currentSummary: OpenTableSummary | undefined = openTablesMap[selectedTable];
 
@@ -159,14 +199,20 @@ export const OpenTablesModal: React.FC<OpenTablesModalProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-display text-base sm:text-2xl font-bold uppercase text-zinc-100 tracking-wide truncate">
-                  Mesas & Conta no Salão
+                  {isLockedSingleTable
+                    ? `Consumo da Mesa ${selectedTable}`
+                    : 'Mesas & Conta no Salão'}
                 </h2>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold uppercase whitespace-nowrap">
-                  {openTableKeys.length} {openTableKeys.length === 1 ? 'Aberta' : 'Abertas'}
-                </span>
+                {!isLockedSingleTable && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold uppercase whitespace-nowrap">
+                    {openTableKeys.length} {openTableKeys.length === 1 ? 'Aberta' : 'Abertas'}
+                  </span>
+                )}
               </div>
               <p className="text-[11px] sm:text-xs text-zinc-400 truncate">
-                Peça mais itens na mesa ou feche a conta com o garçom
+                {isLockedSingleTable
+                  ? 'Acompanhe seus pedidos na mesa ou adicione novos itens'
+                  : 'Peça mais itens na mesa ou feche a conta com o garçom'}
               </p>
             </div>
           </div>
@@ -183,72 +229,75 @@ export const OpenTablesModal: React.FC<OpenTablesModalProps> = ({
           </button>
         </div>
 
-        {/* Mobile Quick Table Strip (Visible on < lg so user can switch tables in 1 tap without scrolling) */}
-        <div className="lg:hidden bg-zinc-950/90 border-b border-zinc-800 px-3 py-2 shrink-0 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-              Selecione a Mesa (01 a 11):
-            </span>
-            <button
-              onClick={() => {
-                playTouchSound(520);
-                setMobileViewMode((prev) => (prev === 'details' ? 'map' : 'details'));
-              }}
-              className="text-[11px] font-bold text-amber-400 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800"
-            >
-              <LayoutGrid className="w-3 h-3" />
-              <span>{mobileViewMode === 'details' ? 'Ver Mapa Geral' : 'Ver Conta da Mesa'}</span>
-            </button>
+        {/* Mobile Quick Table Strip (Only shown in Staff Mode) */}
+        {!isLockedSingleTable && (
+          <div className="lg:hidden bg-zinc-950/90 border-b border-zinc-800 px-3 py-2 shrink-0 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                Selecione a Mesa (01 a 11):
+              </span>
+              <button
+                onClick={() => {
+                  playTouchSound(520);
+                  setMobileViewMode((prev) => (prev === 'details' ? 'map' : 'details'));
+                }}
+                className="text-[11px] font-bold text-amber-400 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800"
+              >
+                <LayoutGrid className="w-3 h-3" />
+                <span>{mobileViewMode === 'details' ? 'Ver Mapa Geral' : 'Ver Conta da Mesa'}</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              {ALL_TABLES.map((tbl) => {
+                const summary = openTablesMap[tbl];
+                const isOccupied = !!summary;
+                const isSelected = selectedTable === tbl;
+
+                return (
+                  <button
+                    key={tbl}
+                    onClick={() => {
+                      playTouchSound(540);
+                      setSelectedTable(tbl);
+                      setIsClosingTable(false);
+                      setFeedbackSuccess(null);
+                      setMobileViewMode('details');
+                    }}
+                    className={`relative px-3 py-1.5 rounded-xl font-display font-bold text-xs uppercase transition-all shrink-0 flex items-center gap-1.5 min-h-[38px] border ${
+                      isSelected
+                        ? isOccupied
+                          ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md'
+                          : 'bg-amber-500 text-zinc-950 border-amber-400 shadow-md'
+                        : isOccupied
+                        ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/50'
+                        : 'bg-zinc-900 text-zinc-400 border-zinc-800'
+                    }`}
+                  >
+                    {isOccupied && (
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          isSelected ? 'bg-zinc-950' : 'bg-emerald-400 animate-pulse'
+                        }`}
+                      />
+                    )}
+                    <span>Mesa {tbl}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        )}
 
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-            {ALL_TABLES.map((tbl) => {
-              const summary = openTablesMap[tbl];
-              const isOccupied = !!summary;
-              const isSelected = selectedTable === tbl;
-
-              return (
-                <button
-                  key={tbl}
-                  onClick={() => {
-                    playTouchSound(540);
-                    setSelectedTable(tbl);
-                    setIsClosingTable(false);
-                    setFeedbackSuccess(null);
-                    setMobileViewMode('details');
-                  }}
-                  className={`relative px-3 py-1.5 rounded-xl font-display font-bold text-xs uppercase transition-all shrink-0 flex items-center gap-1.5 min-h-[38px] border ${
-                    isSelected
-                      ? isOccupied
-                        ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md'
-                        : 'bg-amber-500 text-zinc-950 border-amber-400 shadow-md'
-                      : isOccupied
-                      ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/50'
-                      : 'bg-zinc-900 text-zinc-400 border-zinc-800'
-                  }`}
-                >
-                  {isOccupied && (
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isSelected ? 'bg-zinc-950' : 'bg-emerald-400 animate-pulse'
-                      }`}
-                    />
-                  )}
-                  <span>Mesa {tbl}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Body: Left Table Grid (01..11) + Right Selected Table Details */}
+        {/* Body: Left Table Grid (01..11, Staff Only) + Right Selected Table Details */}
         <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
-          {/* Left Column: 11 Tables Grid (Always visible on desktop, toggleable on mobile) */}
-          <div
-            className={`lg:col-span-5 space-y-3 ${
-              mobileViewMode === 'map' ? 'block' : 'hidden lg:block'
-            }`}
-          >
+          {/* Left Column: 11 Tables Grid (Staff Only) */}
+          {!isLockedSingleTable && (
+            <div
+              className={`lg:col-span-5 space-y-3 ${
+                mobileViewMode === 'map' ? 'block' : 'hidden lg:block'
+              }`}
+            >
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-zinc-400">
               <span>Mapa de Mesas (01 a 11)</span>
               <span className="text-[11px] text-amber-400">Toque para Abrir</span>
@@ -327,11 +376,14 @@ export const OpenTablesModal: React.FC<OpenTablesModalProps> = ({
               </div>
             </div>
           </div>
+          )}
 
           {/* Right Column: Selected Table Content */}
           <div
-            className={`lg:col-span-7 flex flex-col justify-between bg-zinc-950 border border-zinc-800 rounded-2xl p-3.5 sm:p-5 ${
-              mobileViewMode === 'details' ? 'flex' : 'hidden lg:flex'
+            className={`${
+              isLockedSingleTable ? 'lg:col-span-12 flex' : 'lg:col-span-7'
+            } flex-col justify-between bg-zinc-950 border border-zinc-800 rounded-2xl p-3.5 sm:p-5 ${
+              !isLockedSingleTable ? (mobileViewMode === 'details' ? 'flex' : 'hidden lg:flex') : ''
             }`}
           >
             {currentSummary ? (
@@ -534,9 +586,12 @@ export const OpenTablesModal: React.FC<OpenTablesModalProps> = ({
                           <span className="px-2 py-0.5 rounded-lg bg-emerald-500 text-zinc-950 font-black text-[10px] sm:text-xs uppercase tracking-wider">
                             MESA {selectedTable} ABERTA
                           </span>
+                          <span className="text-[11px] sm:text-xs text-amber-400 font-mono font-bold">
+                            Senha {currentSummary.orderNumber}
+                          </span>
                           <span className="text-[11px] sm:text-xs text-zinc-400 font-mono">
-                            {currentSummary.orders.length}{' '}
-                            {currentSummary.orders.length === 1 ? 'pedido' : 'pedidos'}
+                            · {currentSummary.orders.length}{' '}
+                            {currentSummary.orders.length === 1 ? 'envio' : 'envios'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 text-zinc-100 font-bold text-sm sm:text-lg mt-1 truncate">
@@ -557,49 +612,77 @@ export const OpenTablesModal: React.FC<OpenTablesModalProps> = ({
 
                     {/* Rounds / Orders History on this Open Table */}
                     <div className="py-3 space-y-2.5 max-h-[36dvh] sm:max-h-[34vh] overflow-y-auto pr-0.5 custom-kiosk-scroll">
-                      {currentSummary.orders.map((ord, idx) => (
-                        <div
-                          key={ord.id}
-                          className="p-2.5 sm:p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-1.5"
-                        >
-                          <div className="flex items-center justify-between gap-2 border-b border-zinc-800/80 pb-1.5">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-display font-black text-xs sm:text-sm text-amber-400 truncate">
-                                {idx + 1}º Pedido ({ord.orderNumber})
-                              </span>
-                              <span className="text-[10px] sm:text-[11px] text-zinc-500 font-mono flex items-center gap-1 shrink-0">
-                                <Clock className="w-3 h-3" />
-                                {ord.formattedTime || ''}
-                              </span>
-                            </div>
-                            {getStatusBadge(ord.status)}
-                          </div>
+                      {currentSummary.orders.map((ord, idx) => {
+                        const { localItems, takeawayItems } = partitionOrderItems(ord);
+                        const hasGrouped = takeawayItems.length > 0;
 
-                          <div className="space-y-1">
-                            {ord.items.map((item, i) => (
-                              <div
-                                key={i}
-                                className="flex items-start justify-between gap-2 text-xs text-zinc-200"
-                              >
-                                <div className="min-w-0">
-                                  <span className="font-bold text-amber-400 mr-1">
-                                    {item.quantity}x
-                                  </span>
-                                  <span className="font-semibold">{item.product.name}</span>
-                                  {item.customization?.selectedOption && (
-                                    <span className="text-amber-300 text-[10px] ml-1">
-                                      ({item.customization.selectedOption})
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="font-mono text-zinc-300 font-semibold shrink-0 tabular-nums">
-                                  R$ {item.totalPrice.toFixed(2).replace('.', ',')}
+                        const renderRow = (item: CartItem, i: number) => (
+                          <div
+                            key={item.cartItemId || i}
+                            className="flex items-start justify-between gap-2 text-xs text-zinc-200"
+                          >
+                            <div className="min-w-0">
+                              <span className="font-bold text-amber-400 mr-1">
+                                {item.quantity}x
+                              </span>
+                              <span className="font-semibold">{item.product.name}</span>
+                              {item.customization?.selectedOption && (
+                                <span className="text-amber-300 text-[10px] ml-1">
+                                  ({item.customization.selectedOption})
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-mono text-zinc-300 font-semibold shrink-0 tabular-nums">
+                              R$ {item.totalPrice.toFixed(2).replace('.', ',')}
+                            </span>
+                          </div>
+                        );
+
+                        return (
+                          <div
+                            key={ord.id}
+                            className="p-2.5 sm:p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-2"
+                          >
+                            <div className="flex items-center justify-between gap-2 border-b border-zinc-800/80 pb-1.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-display font-black text-xs sm:text-sm text-amber-400 truncate">
+                                  {idx + 1}º Envio ({ord.orderNumber})
+                                </span>
+                                <span className="text-[10px] sm:text-[11px] text-zinc-500 font-mono flex items-center gap-1 shrink-0">
+                                  <Clock className="w-3 h-3" />
+                                  {ord.formattedTime || ''}
                                 </span>
                               </div>
-                            ))}
+                              {getStatusBadge(ord.status)}
+                            </div>
+
+                            {hasGrouped ? (
+                              <div className="space-y-2">
+                                {localItems.length > 0 && (
+                                  <div className="space-y-1">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                                      <UtensilsCrossed className="w-3 h-3 shrink-0" />
+                                      <span>Consumo na Mesa</span>
+                                    </div>
+                                    {localItems.map(renderRow)}
+                                  </div>
+                                )}
+                                {takeawayItems.length > 0 && (
+                                  <div className="space-y-1 pt-1.5 border-t border-zinc-800/80">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1">
+                                      <ShoppingBag className="w-3 h-3 shrink-0" />
+                                      <span>Para Viagem (Embalar)</span>
+                                    </div>
+                                    {takeawayItems.map(renderRow)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="space-y-1">{ord.items.map(renderRow)}</div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -615,31 +698,37 @@ export const OpenTablesModal: React.FC<OpenTablesModalProps> = ({
                       <ArrowRight className="w-4 h-4 stroke-[3] shrink-0" />
                     </button>
 
-                    {/* Botões de Fechamento e Impressão */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        onClick={() => {
-                          playTouchSound(550);
-                          printCustomerBill(currentSummary, 'CONFERÊNCIA DE MESA', 'A CONFERIR');
-                        }}
-                        className="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all min-h-[44px]"
-                      >
-                        <Printer className="w-4 h-4 text-amber-400 shrink-0" />
-                        <span>Imprimir Conferência (80mm)</span>
-                      </button>
+                    {/* Botões de Fechamento e Impressão (Exclusivos do Balcão / Garçom) */}
+                    {isStaffMode ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            playTouchSound(550);
+                            printCustomerBill(currentSummary, 'CONFERÊNCIA DE MESA', 'A CONFERIR');
+                          }}
+                          className="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all min-h-[44px]"
+                        >
+                          <Printer className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>Imprimir Conferência (80mm)</span>
+                        </button>
 
-                      {/* BOTÃO PRINCIPAL DE FECHAR CONTA NA MESA */}
-                      <button
-                        onClick={() => {
-                          playTouchSound(600);
-                          setIsClosingTable(true);
-                        }}
-                        className="py-2.5 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md min-h-[44px]"
-                      >
-                        <CreditCard className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Fechar Conta / Encerrar Consumo</span>
-                      </button>
-                    </div>
+                        {/* BOTÃO PRINCIPAL DE FECHAR CONTA NA MESA */}
+                        <button
+                          onClick={() => {
+                            playTouchSound(600);
+                            setIsClosingTable(true);
+                          }}
+                          className="py-2.5 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md min-h-[44px]"
+                        >
+                          <CreditCard className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span>Fechar Conta / Encerrar Consumo</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-[11px] text-zinc-400 text-center">
+                        Para fechar a conta e realizar o pagamento da Mesa {selectedTable}, solicite ao balcão ou ao garçom.
+                      </div>
+                    )}
                   </div>
                 </>
               )

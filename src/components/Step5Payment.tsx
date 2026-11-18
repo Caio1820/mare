@@ -31,6 +31,7 @@ interface Step5PaymentProps {
     customerPhone?: string
   ) => void;
   onChangeOrderType?: () => void;
+  isQrTableLocked?: boolean;
 }
 
 export const Step5Payment: React.FC<Step5PaymentProps> = ({
@@ -41,6 +42,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
   onBack,
   onConfirmPayment,
   onChangeOrderType,
+  isQrTableLocked = false,
 }) => {
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
@@ -235,7 +237,7 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                     ? `Mesa ${tableNumber || '01'} · Salão`
                     : 'Embalagem para Viagem'}
                 </h3>
-                {onChangeOrderType && (
+                {onChangeOrderType && !isQrTableLocked && (
                   <button
                     type="button"
                     onClick={() => {
@@ -262,9 +264,14 @@ export const Step5Payment: React.FC<Step5PaymentProps> = ({
                   className="flex items-start justify-between text-xs sm:text-sm pb-2 border-b border-zinc-800/60"
                 >
                   <div>
-                    <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
+                    <div className="flex items-center gap-1.5 font-semibold text-zinc-200 flex-wrap">
                       <span className="text-amber-400 font-bold">{item.quantity}x</span>
                       <span>{item.product.name}</span>
+                      {orderType === 'local' && item.isTakeaway && (
+                        <span className="text-[10px] font-bold uppercase text-sky-400">
+                          · Para Viagem
+                        </span>
+                      )}
                     </div>
                     {item.customization && (
                       <div className="text-[11px] text-zinc-400 mt-0.5 space-y-0.5">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, UtensilsCrossed } from 'lucide-react';
+import { RotateCcw, ChefHat, Tv, Touchpad, MapPin, UtensilsCrossed, Lock } from 'lucide-react';
 import { OrderType, AppScreen } from '../types';
 import { playTouchSound } from '../utils/sound';
 
@@ -14,6 +14,7 @@ interface HeaderProps {
   onChangeOrderType?: () => void;
   onOpenTablesModal?: () => void;
   openTablesCount?: number;
+  isQrTableLocked?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   onChangeOrderType,
   onOpenTablesModal,
   openTablesCount = 0,
+  isQrTableLocked = false,
 }) => {
   return (
     <header className="relative z-30 w-full bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 px-3 sm:px-6 md:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
@@ -61,132 +63,141 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* Zone 2: Navigation between screens (Spacious, clean, single continuous pill bar) */}
-      <div className="flex items-center gap-1 sm:gap-1.5 bg-zinc-900/90 border border-zinc-800 p-1 rounded-xl sm:rounded-2xl overflow-x-auto no-scrollbar shrink">
-        {/* Cardápio / Totem */}
-        <a
-          href="#/"
-          onClick={(e) => {
-            e.preventDefault();
-            playTouchSound(550);
-            onNavigateScreen('autoatendimento');
-          }}
-          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap shrink-0 ${
-            activeScreen === 'autoatendimento'
-              ? 'bg-amber-500 text-zinc-950 shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-          title="Totem de Autoatendimento (#/)"
-        >
-          <Touchpad className="w-3.5 h-3.5 shrink-0" />
-          <span className="hidden sm:inline">Autoatendimento</span>
-          <span className="sm:hidden">Cardápio</span>
-        </a>
-
-        {/* Botão Mesas Abertas */}
-        {onOpenTablesModal && (
-          <button
-            onClick={() => {
-              playTouchSound(560);
-              onOpenTablesModal();
-            }}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold text-emerald-300 hover:text-emerald-200 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap shrink-0 cursor-pointer"
-            title="Ver Mesas Abertas e Fechar Conta na Mesa"
-          >
-            <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>Mesas</span>
-            {openTablesCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-zinc-950 text-[10px] font-black">
-                {openTablesCount}
-              </span>
-            )}
-          </button>
-        )}
-
-        {/* Cozinha KDS */}
-        <div className="flex items-center shrink-0">
+      {/* Zone 2: Navigation between screens (When QR locked, show only Cardápio) */}
+      {!isQrTableLocked && (
+        <div className="flex items-center gap-1 sm:gap-1.5 bg-zinc-900/90 border border-zinc-800 p-1 rounded-xl sm:rounded-2xl overflow-x-auto no-scrollbar shrink">
+          {/* Cardápio / Totem */}
           <a
-            href="#/cozinha"
+            href="#/"
             onClick={(e) => {
               e.preventDefault();
               playTouchSound(550);
-              onNavigateScreen('cozinha');
+              onNavigateScreen('autoatendimento');
             }}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-l-lg sm:rounded-l-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap ${
-              activeScreen === 'cozinha'
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap shrink-0 ${
+              activeScreen === 'autoatendimento'
                 ? 'bg-amber-500 text-zinc-950 shadow-md'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title="Cozinha KDS - Senha: MARE123"
+            title="Totem de Autoatendimento (#/)"
           >
-            <ChefHat className="w-3.5 h-3.5 shrink-0" />
-            <span>Cozinha</span>
+            <Touchpad className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Autoatendimento</span>
+            <span className="sm:hidden">Cardápio</span>
           </a>
-          <a
-            href="#/cozinha"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-1.5 py-1.5 text-zinc-500 hover:text-amber-400 text-[10px] rounded-r-lg sm:rounded-r-xl hover:bg-zinc-800 transition-colors hidden sm:inline-block"
-            title="Abrir Cozinha em Nova Aba"
-          >
-            ↗
-          </a>
-        </div>
 
-        {/* Painel TV (Destaque e totalmente visível, sem nada tampando) */}
-        <div className="flex items-center shrink-0">
-          <a
-            href="#/painel"
-            onClick={(e) => {
-              e.preventDefault();
-              playTouchSound(550);
-              onNavigateScreen('painel');
-            }}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-l-lg sm:rounded-l-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap ${
-              activeScreen === 'painel'
-                ? 'bg-amber-500 text-zinc-950 shadow-md'
-                : 'text-zinc-300 hover:text-amber-400 hover:bg-zinc-800/80'
-            }`}
-            title="Painel de Chamadas TV"
-          >
-            <Tv className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="font-extrabold uppercase tracking-wide">Painel TV</span>
-          </a>
-          <a
-            href="#/painel"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-2 py-1.5 text-zinc-400 hover:text-amber-400 text-xs rounded-r-lg sm:rounded-r-xl hover:bg-zinc-800 transition-colors hidden sm:inline-block font-mono"
-            title="Abrir Painel TV em Nova Aba (Modo TV de Chamadas)"
-          >
-            ↗
-          </a>
+          {/* Botão Mesas Abertas (Acesso Balcão) */}
+          {onOpenTablesModal && (
+            <button
+              onClick={() => {
+                playTouchSound(560);
+                onOpenTablesModal();
+              }}
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold text-emerald-300 hover:text-emerald-200 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap shrink-0 cursor-pointer"
+              title="Acesso restrito ao Balcão · Gerenciar Mesas Abertas e Fechamento"
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>Mesas</span>
+              {openTablesCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-zinc-950 text-[10px] font-black">
+                  {openTablesCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Cozinha KDS */}
+          <div className="flex items-center shrink-0">
+            <a
+              href="#/cozinha"
+              onClick={(e) => {
+                e.preventDefault();
+                playTouchSound(550);
+                onNavigateScreen('cozinha');
+              }}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-l-lg sm:rounded-l-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap ${
+                activeScreen === 'cozinha'
+                  ? 'bg-amber-500 text-zinc-950 shadow-md'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Cozinha KDS"
+            >
+              <ChefHat className="w-3.5 h-3.5 shrink-0" />
+              <span>Cozinha</span>
+            </a>
+            <a
+              href="#/cozinha"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-1.5 py-1.5 text-zinc-500 hover:text-amber-400 text-[10px] rounded-r-lg sm:rounded-r-xl hover:bg-zinc-800 transition-colors hidden sm:inline-block"
+              title="Abrir Cozinha em Nova Aba"
+            >
+              ↗
+            </a>
+          </div>
+
+          {/* Painel TV (Destaque e totalmente visível, sem nada tampando) */}
+          <div className="flex items-center shrink-0">
+            <a
+              href="#/painel"
+              onClick={(e) => {
+                e.preventDefault();
+                playTouchSound(550);
+                onNavigateScreen('painel');
+              }}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-l-lg sm:rounded-l-xl text-[11px] sm:text-xs font-bold transition-all min-h-[36px] sm:min-h-[38px] whitespace-nowrap ${
+                activeScreen === 'painel'
+                  ? 'bg-amber-500 text-zinc-950 shadow-md'
+                  : 'text-zinc-300 hover:text-amber-400 hover:bg-zinc-800/80'
+              }`}
+              title="Painel de Chamadas TV"
+            >
+              <Tv className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="font-extrabold uppercase tracking-wide">Painel TV</span>
+            </a>
+            <a
+              href="#/painel"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2 py-1.5 text-zinc-400 hover:text-amber-400 text-xs rounded-r-lg sm:rounded-r-xl hover:bg-zinc-800 transition-colors hidden sm:inline-block font-mono"
+              title="Abrir Painel TV em Nova Aba (Modo TV de Chamadas)"
+            >
+              ↗
+            </a>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Zone 3: Session Context & Reset */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {activeScreen === 'autoatendimento' && orderType && currentStep !== 'idle' && (
-          <button
-            onClick={() => {
-              playTouchSound(520);
-              if (onChangeOrderType) onChangeOrderType();
-            }}
-            className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/60 px-2.5 sm:px-3 py-1.5 rounded-full text-zinc-200 text-[11px] sm:text-xs font-semibold transition-all active:scale-95 group shadow-sm min-h-[34px] sm:min-h-[38px] whitespace-nowrap cursor-pointer"
-            title="Toque para alterar entre Comer no Local ou Para Viagem"
-          >
-            <MapPin className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-            <span className="truncate max-w-[90px] xs:max-w-none">
-              {orderType === 'local'
-                ? tableNumber === 'Balcão'
-                  ? 'Balcão · Salão'
-                  : `Mesa ${tableNumber || '01'} · Salão`
-                : 'Para Viagem'}
-            </span>
-            <span className="text-[10px] text-amber-400 underline font-normal hidden sm:inline ml-0.5">
-              Alterar
-            </span>
-          </button>
+          isQrTableLocked ? (
+            <div className="flex items-center gap-1.5 bg-zinc-900 border border-amber-500/40 px-2.5 sm:px-3 py-1.5 rounded-full text-amber-300 text-[11px] sm:text-xs font-bold min-h-[34px] sm:min-h-[38px] whitespace-nowrap">
+              <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>Mesa {tableNumber || '01'} · QR</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                playTouchSound(520);
+                if (onChangeOrderType) onChangeOrderType();
+              }}
+              className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/60 px-2.5 sm:px-3 py-1.5 rounded-full text-zinc-200 text-[11px] sm:text-xs font-semibold transition-all active:scale-95 group shadow-sm min-h-[34px] sm:min-h-[38px] whitespace-nowrap cursor-pointer"
+              title="Toque para alterar entre Comer no Local ou Para Viagem"
+            >
+              <MapPin className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="truncate max-w-[90px] xs:max-w-none">
+                {orderType === 'local'
+                  ? tableNumber === 'Balcão'
+                    ? 'Balcão · Salão'
+                    : `Mesa ${tableNumber || '01'} · Salão`
+                  : 'Para Viagem'}
+              </span>
+              <span className="text-[10px] text-amber-400 underline font-normal hidden sm:inline ml-0.5">
+                Alterar
+              </span>
+            </button>
+          )
         )}
 
         {/* Reset button if inside order flow in Kiosk */}
@@ -199,10 +210,10 @@ export const Header: React.FC<HeaderProps> = ({
               }
             }}
             className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold bg-zinc-900 hover:bg-red-950/40 text-zinc-400 hover:text-red-400 border border-zinc-800 hover:border-red-800/50 rounded-xl flex items-center gap-1.5 transition-colors active:scale-95 whitespace-nowrap min-h-[34px] sm:min-h-[38px] cursor-pointer"
-            title="Reiniciar Pedido"
+            title={isQrTableLocked ? 'Limpar sacola atual' : 'Reiniciar Pedido'}
           >
             <RotateCcw className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden md:inline">Reiniciar</span>
+            <span className="hidden md:inline">{isQrTableLocked ? 'Limpar' : 'Reiniciar'}</span>
           </button>
         )}
       </div>

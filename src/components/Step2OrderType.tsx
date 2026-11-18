@@ -12,6 +12,7 @@ interface Step2OrderTypeProps {
   hasCartItems?: boolean;
   openTablesMap?: Record<string, OpenTableSummary>;
   onOpenTablesModal?: () => void;
+  isStaffMode?: boolean;
 }
 
 export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
@@ -22,6 +23,7 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
   hasCartItems = false,
   openTablesMap = {},
   onOpenTablesModal,
+  isStaffMode = false,
 }) => {
   const [selectedType, setSelectedType] = useState<OrderType | null>(initialType);
   const [tableNumber, setTableNumber] = useState<string>(initialTable);
@@ -276,7 +278,7 @@ export const Step2OrderType: React.FC<Step2OrderTypeProps> = ({
                   <span className="font-display text-xl sm:text-2xl font-bold text-amber-400 block">
                     {tableNumber === 'Balcão' ? 'Balcão (Salão)' : `Mesa ${tableNumber}`}
                   </span>
-                  {selectedTableSummary && (
+                  {selectedTableSummary && isStaffMode && (
                     <span className="text-[11px] sm:text-xs text-emerald-400 font-bold block mt-0.5 truncate">
                       🟢 Mesa Aberta ({selectedTableSummary.customerName}) · R${' '}
                       {selectedTableSummary.totalAmount.toFixed(2).replace('.', ',')}

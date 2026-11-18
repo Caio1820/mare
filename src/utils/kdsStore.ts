@@ -1,12 +1,88 @@
-import { Order, OrderStatus, PaymentMethod } from '../types';
+import { CartItem, Order, OrderStatus, PaymentMethod } from '../types';
 import { playKitchenBell } from './sound';
+import {
+  upsertOrderInFirestore,
+  updateOrderPatchInFirestore,
+  fetchOrdersByRangeFromFirestore,
+  deleteAllOrdersFromFirestore,
+} from '../lib/firebase';
 
 const STORAGE_KEY = 'mare_orders_v5';
+const HISTORY_STORAGE_KEY = 'mare_orders_history_v1';
 const CLEARED_KEY = 'mare_cleared_before_v5';
 const BROADCAST_CHANNEL_NAME = 'mare_restaurant_channel';
 
 // 18 hours max retention for active kitchen display
 const MAX_ACTIVE_ORDER_AGE_MS = 18 * 60 * 60 * 1000;
+
+function readHistoryFromStorage(): Order[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((o) => !!o && !!o.id && !String(o.id).includes('seed'));
+    }
+  } catch {
+    // Ignore storage read errors
+  }
+  return [];
+}
+
+function upsertOrdersIntoLocalHistory(incoming: Order[]): void {
+  if (typeof window === 'undefined' || !Array.isArray(incoming) || incoming.length === 0) return;
+  try {
+    const existing = readHistoryFromStorage();
+    const map = new Map<string, Order>();
+    for (const o of existing) {
+      map.set(o.id, o);
+    }
+    for (const o of incoming) {
+      if (!o || !o.id || String(o.id).includes('seed')) continue;
+      const prev = map.get(o.id);
+      map.set(o.id, prev ? mergeOrderRecords(prev, o) : o);
+    }
+    const sorted = Array.from(map.values())
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .slice(0, 3000);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(sorted));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function mergeOrderRecords(a: Order, b: Order): Order {
+  const statusWeight: Record<OrderStatus, number> = {
+    recebido: 1,
+    preparo: 2,
+    pronto: 3,
+    entregue: 4,
+    cancelado: 5,
+  };
+  const weightA = statusWeight[a.status] || 0;
+  const weightB = statusWeight[b.status] || 0;
+  const primary = weightB >= weightA ? b : a;
+  const secondary = primary === b ? a : b;
+
+  return {
+    ...secondary,
+    ...primary,
+    orderNumber: primary.orderNumber || secondary.orderNumber,
+    tableClosed: !!(a.tableClosed || b.tableClosed),
+    closedAt: Math.max(a.closedAt || 0, b.closedAt || 0) || undefined,
+    clearedFromKds: !!(a.clearedFromKds || b.clearedFromKds),
+    clearedAt: Math.max(a.clearedAt || 0, b.clearedAt || 0) || undefined,
+    cancelledAt: Math.max(a.cancelledAt || 0, b.cancelledAt || 0) || undefined,
+    cancelReason: primary.cancelReason || secondary.cancelReason,
+    paymentStatus:
+      a.paymentStatus === 'pago' || b.paymentStatus === 'pago'
+        ? 'pago'
+        : primary.paymentStatus,
+    roundNumber: Math.max(a.roundNumber || 1, b.roundNumber || 1),
+    announcedAt: Math.max(a.announcedAt || 0, b.announcedAt || 0) || undefined,
+  };
+}
 
 // Helper for non-blocking fetch with strict timeout so requests NEVER hang the browser
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 3500): Promise<Response> {
@@ -40,10 +116,39 @@ export function isNumberedTableOrder(order: Order): boolean {
   return tbl !== '' && tbl !== 'balcão' && tbl !== 'balcao';
 }
 
+export interface PartitionedOrderItems {
+  localItems: CartItem[];
+  takeawayItems: CartItem[];
+  hasMixedConsumption: boolean;
+}
+
+export function partitionOrderItems(order: Order): PartitionedOrderItems {
+  const items = Array.isArray(order.items) ? order.items : [];
+  if (order.orderType === 'viagem') {
+    return {
+      localItems: [],
+      takeawayItems: items,
+      hasMixedConsumption: false,
+    };
+  }
+
+  const localItems = items.filter((item) => !item.isTakeaway);
+  const takeawayItems = items.filter((item) => !!item.isTakeaway);
+
+  return {
+    localItems,
+    takeawayItems,
+    hasMixedConsumption: localItems.length > 0 && takeawayItems.length > 0,
+  };
+}
+
 // Validator to strictly filter out fictitious seeds, ancient history, and closed/completed orders
 export function isOrderActiveAndFresh(order: Order): boolean {
   if (!order || !order.id) return false;
   if (order.id.includes('seed')) return false;
+
+  // Cancelled orders leave active KDS, TV, and open tables immediately (kept in audit history)
+  if (order.status === 'cancelado') return false;
 
   // Closed table tabs are completely finished
   if (order.tableClosed) return false;
@@ -123,6 +228,7 @@ function deduplicateAndSortOrders(orderList: Order[]): Order[] {
         preparo: 2,
         pronto: 3,
         entregue: 4,
+        cancelado: 5,
       };
 
       const existingWeight = statusWeight[existing.status] || 0;
@@ -243,8 +349,24 @@ export function getStoredOrders(): Order[] {
 }
 
 // Clear all orders (Called by Staff in Kitchen)
+// Historical archive (local + Firestore + server) is NEVER deleted so reports remain complete.
 export async function clearAllOrders(deleteAll = false): Promise<void> {
   const now = Date.now();
+  const currentActive = readFromStorage();
+  const archivedBatch = currentActive
+    .filter((o) => !!o && !!o.id && !o.id.includes('seed'))
+    .filter((o) => deleteAll || (o.status === 'entregue' && !o.tableClosed))
+    .map((o) => ({ ...o, clearedFromKds: true, clearedAt: now }));
+
+  if (archivedBatch.length > 0) {
+    upsertOrdersIntoLocalHistory(archivedBatch);
+    Promise.allSettled(
+      archivedBatch.map((o) =>
+        updateOrderPatchInFirestore(o.id, { clearedFromKds: true, clearedAt: now })
+      )
+    ).catch(() => {});
+  }
+
   if (deleteAll) {
     if (typeof window !== 'undefined') {
       try {
@@ -257,8 +379,7 @@ export async function clearAllOrders(deleteAll = false): Promise<void> {
     cachedOrders = [];
     notifyListeners([], false);
   } else {
-    const current = readFromStorage();
-    const nextOrders = current.filter(isOrderActiveAndFresh);
+    const nextOrders = currentActive.filter(isOrderActiveAndFresh);
     notifyListeners(nextOrders, false);
   }
 
@@ -335,17 +456,25 @@ export async function createOrder(orderPayload: {
     orderPayload.tableNumber.toLowerCase() !== 'balcao';
 
   const existingTableOrders = isNumberedTable
-    ? current.filter(
-        (o) =>
-          o.orderType === 'local' &&
-          o.tableNumber === orderPayload.tableNumber &&
-          !o.tableClosed
-      )
+    ? current
+        .filter(
+          (o) =>
+            o.orderType === 'local' &&
+            o.tableNumber === orderPayload.tableNumber &&
+            !o.tableClosed &&
+            o.status !== 'cancelado'
+        )
+        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
     : [];
+
+  const resolvedOrderNumber =
+    isNumberedTable && existingTableOrders.length > 0
+      ? existingTableOrders[0].orderNumber
+      : `#${numStr}`;
 
   const localNewOrder: Order = {
     id: orderId,
-    orderNumber: `#${numStr}`,
+    orderNumber: resolvedOrderNumber,
     customerName: orderPayload.customerName.trim(),
     customerPhone: orderPayload.customerPhone?.trim(),
     orderType: orderPayload.orderType,
@@ -364,11 +493,13 @@ export async function createOrder(orderPayload: {
     roundNumber: isNumberedTable ? existingTableOrders.length + 1 : 1,
   };
 
-  // 1. Immediately update local storage and notify local listeners
+  // 1. Immediately update local active storage, permanent local history, and notify listeners
+  upsertOrdersIntoLocalHistory([localNewOrder]);
   const updatedList = [localNewOrder, ...current];
   notifyListeners(updatedList, false);
 
   // 2. Send to backend server with timeout so UI never freezes
+  let finalOrder = localNewOrder;
   try {
     const res = await fetchWithTimeout(
       '/api/orders',
@@ -387,33 +518,52 @@ export async function createOrder(orderPayload: {
     if (res.ok) {
       const serverOrder: Order = await res.json();
       knownOrderIds.add(serverOrder.id);
+      finalOrder = serverOrder;
+      upsertOrdersIntoLocalHistory([serverOrder]);
 
       const synced = updatedList.map((o) => (o.id === localNewOrder.id ? serverOrder : o));
       notifyListeners(synced, false);
-      return serverOrder;
     }
   } catch (err) {
     console.warn('Backend API indisponível, pedido mantido localmente:', err);
   }
 
-  return localNewOrder;
+  // 3. Mirror order in Firestore cloud archive (non-blocking for offline resilience)
+  upsertOrderInFirestore(finalOrder).catch((err) => {
+    console.warn('Firestore indisponível no momento, mantendo histórico local:', err);
+  });
+
+  return finalOrder;
 }
 
 // Update order status (from Kitchen)
 export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus): Promise<void> {
   const current = readFromStorage();
+  const announcedAt = nextStatus === 'pronto' ? Date.now() : undefined;
+  let updatedOrder: Order | undefined;
+
   const updated = current.map((ord) => {
     if (ord.id === orderId) {
-      return {
+      updatedOrder = {
         ...ord,
         status: nextStatus,
-        announcedAt: nextStatus === 'pronto' ? Date.now() : ord.announcedAt,
+        announcedAt: announcedAt ?? ord.announcedAt,
       };
+      return updatedOrder;
     }
     return ord;
   });
 
+  if (updatedOrder) {
+    upsertOrdersIntoLocalHistory([updatedOrder]);
+  }
   notifyListeners(updated, false);
+
+  const firestorePatch: Partial<Order> = { status: nextStatus };
+  if (announcedAt) {
+    firestorePatch.announcedAt = announcedAt;
+  }
+  updateOrderPatchInFirestore(orderId, firestorePatch).catch(() => {});
 
   try {
     await fetchWithTimeout(`/api/orders/${orderId}/status`, {
@@ -426,8 +576,78 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
   }
 }
 
+// Cancel order from Kitchen (removes from active queue/TV/table balance and excludes from revenue)
+export async function cancelOrder(orderId: string, cancelReason?: string): Promise<void> {
+  const current = readFromStorage();
+  const nowMs = Date.now();
+  const cleanReason = (cancelReason || '').trim().slice(0, 200) || undefined;
+
+  const target =
+    current.find((o) => o.id === orderId) ||
+    readHistoryFromStorage().find((o) => o.id === orderId);
+
+  if (target) {
+    const cancelledOrder: Order = {
+      ...target,
+      status: 'cancelado',
+      cancelledAt: nowMs,
+      cancelReason: cleanReason,
+    };
+    upsertOrdersIntoLocalHistory([cancelledOrder]);
+  }
+
+  const remaining = current.filter((o) => o.id !== orderId);
+  notifyListeners(remaining, false);
+
+  const firestorePatch: Partial<Order> = {
+    status: 'cancelado',
+    cancelledAt: nowMs,
+  };
+  if (cleanReason) {
+    firestorePatch.cancelReason = cleanReason;
+  }
+  updateOrderPatchInFirestore(orderId, firestorePatch).catch(() => {});
+
+  try {
+    await fetchWithTimeout(`/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'cancelado', cancelReason: cleanReason }),
+    });
+  } catch {
+    // Local cancellation already applied
+  }
+}
+
+// Fetch live status of a specific order (for customer tracking across delivered/cancelled states)
+export async function fetchSingleOrder(orderId: string): Promise<Order | null> {
+  if (!orderId) return null;
+  try {
+    const res = await fetchWithTimeout(
+      `/api/orders/${encodeURIComponent(orderId)}?t=${Date.now()}`,
+      { cache: 'no-store' },
+      3000
+    );
+    if (res.ok) {
+      const ord = (await res.json()) as Order;
+      if (ord && ord.id) {
+        upsertOrdersIntoLocalHistory([ord]);
+        return ord;
+      }
+    }
+  } catch {
+    // Fallback to local caches
+  }
+
+  const inActive = readFromStorage().find((o) => o.id === orderId);
+  if (inActive) return inActive;
+  const inHistory = readHistoryFromStorage().find((o) => o.id === orderId);
+  return inHistory || null;
+}
+
 export interface OpenTableSummary {
   tableNumber: string;
+  orderNumber: string;
   customerName: string;
   customerPhone?: string;
   orders: Order[];
@@ -444,12 +664,13 @@ export function getOpenTablesMap(orders: Order[]): Record<string, OpenTableSumma
   const sortedAsc = [...orders].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
   for (const ord of sortedAsc) {
-    if (!isNumberedTableOrder(ord) || ord.tableClosed) continue;
+    if (!isNumberedTableOrder(ord) || ord.tableClosed || ord.status === 'cancelado') continue;
     const tbl = ord.tableNumber!.trim();
 
     if (!map[tbl]) {
       map[tbl] = {
         tableNumber: tbl,
+        orderNumber: ord.orderNumber,
         customerName: ord.customerName || `Mesa ${tbl}`,
         customerPhone: ord.customerPhone,
         orders: [],
@@ -491,6 +712,39 @@ export async function closeTableTab(
 ): Promise<void> {
   const cleanTable = tableNumber.trim();
   const current = readFromStorage();
+  const nowMs = Date.now();
+
+  const ordersToClose = current.filter(
+    (ord) =>
+      ord.orderType === 'local' &&
+      ord.tableNumber?.trim() === cleanTable &&
+      ord.status !== 'cancelado'
+  );
+
+  if (ordersToClose.length > 0) {
+    const settledOrders: Order[] = ordersToClose.map((ord) => ({
+      ...ord,
+      tableClosed: true,
+      closedAt: nowMs,
+      status: 'entregue',
+      paymentStatus: 'pago',
+      paymentMethod: paymentMethod || ord.paymentMethod || 'balcao',
+    }));
+    upsertOrdersIntoLocalHistory(settledOrders);
+
+    Promise.allSettled(
+      settledOrders.map((ord) =>
+        updateOrderPatchInFirestore(ord.id, {
+          tableClosed: true,
+          closedAt: nowMs,
+          status: 'entregue',
+          paymentStatus: 'pago',
+          paymentMethod: ord.paymentMethod,
+        })
+      )
+    ).catch(() => {});
+  }
+
   const remaining = current.filter(
     (ord) => !(ord.orderType === 'local' && ord.tableNumber?.trim() === cleanTable)
   );
@@ -506,6 +760,177 @@ export async function closeTableTab(
   } catch {
     // Local update already applied
   }
+}
+
+export interface ReportOrdersResult {
+  orders: Order[];
+  sources: {
+    firestore: boolean;
+    server: boolean;
+    local: boolean;
+  };
+}
+
+// Fetch historical orders across Firestore (cloud), Express history API (server), and localStorage (offline PWA)
+export async function fetchReportOrders(
+  startMs: number,
+  endMs: number
+): Promise<ReportOrdersResult> {
+  const sources = {
+    firestore: false,
+    server: false,
+    local: true,
+  };
+
+  // Backfill currently active orders into local history
+  upsertOrdersIntoLocalHistory(readFromStorage());
+
+  const [firestoreRes, serverRes] = await Promise.allSettled([
+    fetchOrdersByRangeFromFirestore(startMs, endMs),
+    fetchWithTimeout(`/api/reports/orders?startMs=${startMs}&endMs=${endMs}`, {
+      cache: 'no-store',
+    }, 4000).then(async (r) => {
+      if (!r.ok) throw new Error('Server history unavailable');
+      return (await r.json()) as Order[];
+    }),
+  ]);
+
+  const mergedMap = new Map<string, Order>();
+
+  const addBatch = (list: Order[]) => {
+    for (const ord of list) {
+      if (!ord || !ord.id || String(ord.id).includes('seed')) continue;
+      const existing = mergedMap.get(ord.id);
+      mergedMap.set(ord.id, existing ? mergeOrderRecords(existing, ord) : ord);
+    }
+  };
+
+  const localHistory = readHistoryFromStorage();
+  const localActive = readFromStorage();
+  addBatch(localHistory);
+  addBatch(localActive);
+
+  if (serverRes.status === 'fulfilled' && Array.isArray(serverRes.value)) {
+    sources.server = true;
+    addBatch(serverRes.value);
+  }
+
+  if (firestoreRes.status === 'fulfilled' && Array.isArray(firestoreRes.value)) {
+    sources.firestore = true;
+    addBatch(firestoreRes.value);
+  }
+
+  const allMerged = Array.from(mergedMap.values());
+  // Keep local history synced with cloud/server results for offline PWA resilience
+  if (allMerged.length > 0) {
+    upsertOrdersIntoLocalHistory(allMerged);
+  }
+
+  const inRange = allMerged
+    .filter((o) => {
+      const ts = Number(o.createdAt) || 0;
+      return ts >= startMs && ts <= endMs;
+    })
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  return { orders: inRange, sources };
+}
+
+export interface ResetHistoryResult {
+  ok: boolean;
+  error?: string;
+  cloudDeletedCount: number;
+  serverReset: boolean;
+}
+
+// Completely wipe order history across Server, Firestore (cloud), and Browser localStorage, and reset daily #001 counter
+export async function resetAllOrderHistory(password: string): Promise<ResetHistoryResult> {
+  const cleanPassword = (password || '').trim();
+  if (!cleanPassword) {
+    return {
+      ok: false,
+      error: 'Digite a senha de administrador.',
+      cloudDeletedCount: 0,
+      serverReset: false,
+    };
+  }
+
+  let serverReset = false;
+  let serverReachable = false;
+
+  // 1. Validate password & reset Server files + daily #001 sequence
+  try {
+    const res = await fetchWithTimeout(
+      '/api/reports/reset',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: cleanPassword }),
+      },
+      5000
+    );
+    serverReachable = true;
+    if (res.status === 401) {
+      return {
+        ok: false,
+        error: 'Senha de administrador incorreta.',
+        cloudDeletedCount: 0,
+        serverReset: false,
+      };
+    }
+    if (res.ok) {
+      serverReset = true;
+    }
+  } catch {
+    // Server offline (PWA offline mode) - fallback to client verification
+    const validOffline = await verifyAdminPassword(cleanPassword);
+    if (!validOffline) {
+      return {
+        ok: false,
+        error: 'Senha de administrador incorreta.',
+        cloudDeletedCount: 0,
+        serverReset: false,
+      };
+    }
+  }
+
+  if (serverReachable && !serverReset) {
+    return {
+      ok: false,
+      error: 'Não foi possível validar a limpeza no servidor.',
+      cloudDeletedCount: 0,
+      serverReset: false,
+    };
+  }
+
+  // 2. Clear Browser localStorage (active queue + permanent history + cleared cutoff)
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(HISTORY_STORAGE_KEY);
+      localStorage.removeItem(CLEARED_KEY);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  knownOrderIds.clear();
+  cachedOrders = [];
+  notifyListeners([], false);
+
+  // 3. Delete all documents in Firestore /orders
+  let cloudDeletedCount = 0;
+  try {
+    cloudDeletedCount = await deleteAllOrdersFromFirestore();
+  } catch (err) {
+    console.warn('Firestore cleanup skipped or offline:', err);
+  }
+
+  return {
+    ok: true,
+    cloudDeletedCount,
+    serverReset,
+  };
 }
 
 // Re-announce customer order (Ding-dong on TV + Speech)

@@ -60,13 +60,14 @@ export interface CartItem {
   burger3DConfig?: CustomBurger3DConfig;
   unitPrice: number;
   totalPrice: number;
+  isTakeaway?: boolean;
 }
 
 export type OrderType = 'local' | 'viagem';
 
 export type PaymentMethod = 'balcao' | 'pix' | 'cartao_balcao' | 'dinheiro_balcao';
 
-export type OrderStatus = 'recebido' | 'preparo' | 'pronto' | 'entregue';
+export type OrderStatus = 'recebido' | 'preparo' | 'pronto' | 'entregue' | 'cancelado';
 
 export interface Order {
   id: string;
@@ -74,7 +75,7 @@ export interface Order {
   customerName: string; // Mandatory customer name
   customerPhone?: string; // Optional phone for WhatsApp notification
   orderType: OrderType;
-  tableNumber?: string; // 01 to 10
+  tableNumber?: string; // 01 to 11
   items: CartItem[];
   observations?: string; // General order observations
   subtotal: number;
@@ -88,7 +89,62 @@ export interface Order {
   announcedAt?: number; // timestamp when called on TV panel
   autoPrinted?: boolean; // whether thermal ticket was sent to print
   tableClosed?: boolean; // true when the table tab has been paid and closed
+  closedAt?: number; // timestamp when table or order was closed/paid
+  clearedFromKds?: boolean; // true when hidden/cleared from active KDS board (kept in reports)
+  clearedAt?: number; // timestamp when cleared from KDS queue
   roundNumber?: number; // 1st order, 2nd order, etc. for the same open table
+  cancelledAt?: number; // timestamp when cancelled from kitchen/counter
+  cancelReason?: string; // optional reason for order cancellation
+}
+
+export type ReportPeriodType = 'day' | 'month';
+
+export type OrderConsumptionFilter = 'all' | 'local' | 'viagem';
+
+export interface PaymentBreakdownStat {
+  method: PaymentMethod;
+  label: string;
+  count: number;
+  total: number;
+  paidTotal: number;
+  pendingTotal: number;
+  percentage: number;
+}
+
+export interface TopProductStat {
+  productId: string;
+  name: string;
+  quantity: number;
+  revenue: number;
+  percentage: number;
+}
+
+export interface PeriodBreakdownRow {
+  key: string; // YYYY-MM-DD or HH
+  label: string; // DD/MM or HHh
+  orderCount: number;
+  totalRevenue: number;
+}
+
+export interface OrdersReportSummary {
+  periodType: ReportPeriodType;
+  periodKey: string;
+  totalRevenue: number;
+  paidRevenue: number;
+  pendingRevenue: number;
+  totalOrders: number;
+  cancelledOrdersCount: number;
+  cancelledTotal: number;
+  localOrdersCount: number;
+  viagemOrdersCount: number;
+  mixedOrdersCount: number;
+  averageTicket: number;
+  totalItemsCount: number;
+  localItemsCount: number;
+  takeawayItemsCount: number;
+  paymentBreakdown: PaymentBreakdownStat[];
+  topProducts: TopProductStat[];
+  timelineBreakdown: PeriodBreakdownRow[];
 }
 
 export type KioskStep = 
@@ -109,3 +165,4 @@ export interface UpSellItem {
   image: string;
   badge?: string;
 }
+
